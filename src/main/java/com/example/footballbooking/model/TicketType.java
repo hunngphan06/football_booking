@@ -1,15 +1,28 @@
 package com.example.footballbooking.model;
 
+import jakarta.persistence.*;
 import java.math.BigDecimal;
 
+@Entity
+@Table(name = "ticket_types")
 public class TicketType {
-    private final Long id;
-    private final String name;
-    private final BigDecimal price;
-    private final int totalQuantity;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String name;
+    private BigDecimal price;
+    private int totalQuantity;
+    private int allocatedQuantity;
 
-    public TicketType(Long id, String name, BigDecimal price, int totalQuantity) {
-        this.id = id;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "match_id")
+    private FootballMatch match;
+
+    protected TicketType() {
+    }
+
+    TicketType(FootballMatch match, String name, BigDecimal price, int totalQuantity) {
+        this.match = match;
         this.name = name;
         this.price = price;
         this.totalQuantity = totalQuantity;
@@ -19,4 +32,5 @@ public class TicketType {
     public String getName() { return name; }
     public BigDecimal getPrice() { return price; }
     public int getTotalQuantity() { return totalQuantity; }
+    public int getAvailableQuantity() { return totalQuantity - allocatedQuantity; }
 }

@@ -1,0 +1,470 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Football Booking | Quản lý trận đấu</title>
+<style>
+:root{font-family:Inter,"Segoe UI",sans-serif;color:#f2f5f8;background:#121619;--panel:#1b2125;--line:#333d43;--soft:#b2bec4;--lime:#d6f87c}
+*{box-sizing:border-box}body{margin:0}button,input,textarea{font:inherit}button{cursor:pointer}
+.bar{border-bottom:1px solid var(--line);background:#171c1f}.bar-inner{max-width:1220px;margin:auto;display:flex;align-items:center;justify-content:space-between;padding:17px 28px;gap:14px}.brand{display:flex;gap:12px;align-items:center;font-weight:750;letter-spacing:-.025em}.mark{display:grid;place-items:center;width:34px;height:34px;border:1px solid #a7bf67;border-radius:8px;color:var(--lime);font-size:18px}.mode{font-size:12px;padding:6px 10px;border:1px solid var(--line);border-radius:99px;color:var(--soft);white-space:nowrap}
+main{max-width:1220px;margin:auto;padding:40px 28px 55px}.heading{margin-bottom:28px}.heading h1{margin:0 0 8px;font-size:clamp(2rem,5vw,3rem);line-height:1.06;letter-spacing:-.05em}.muted,.heading p{color:var(--soft);margin:0;line-height:1.55;font-size:14px}
+.layout{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(330px,1fr);gap:22px;align-items:start}.panel{border:1px solid var(--line);border-radius:14px;background:var(--panel);min-width:0}.panel-head{padding:20px 21px 15px}.panel-head h2,.form-head h2{margin:0 0 5px;font-size:19px;letter-spacing:-.02em}.filters{display:flex;padding:0 21px 17px;gap:8px}.filters input{flex:1;min-width:0}
+input,textarea{width:100%;border-radius:7px;border:1px solid #48535a;color:inherit;background:#151a1d;padding:9px 10px;line-height:1.3;min-height:41px}textarea{resize:vertical;min-height:60px}input::placeholder,textarea::placeholder{color:#94a2aa}input:focus,textarea:focus,button:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+button{border-radius:7px;font-weight:700;border:1px solid transparent;padding:9px 13px}.secondary{background:#272f34;border-color:#48535a;color:#f2f5f8}.primary{background:var(--lime);color:#1b2410;min-height:44px}.primary:hover{background:#e5ffa4}button:disabled{opacity:.6;cursor:wait}
+.matches{margin:0;padding:0;list-style:none}.match{border-top:1px solid var(--line);padding:17px 21px;display:grid;grid-template-columns:1fr auto;gap:12px}.match h3{font-size:15px;line-height:1.4;margin:0 0 5px;overflow-wrap:anywhere}.match .muted{font-size:12px}.ticket-summary{text-align:right;min-width:70px;font-size:13px;line-height:1.55}.ticket-summary strong{color:var(--lime);display:block}.empty{border-top:1px solid var(--line);padding:20px 21px;color:var(--soft);margin:0}.count{margin:0;color:var(--soft);font-size:13px;padding:12px 21px;border-top:1px solid var(--line)}
+form{padding:20px 21px}.form-head{margin-bottom:17px}fieldset{border:0;padding:0;margin:0;min-width:0}legend{font-weight:700;font-size:14px;padding:0;margin:0 0 10px}.fields{display:grid;grid-template-columns:1fr 1fr;gap:12px}.wide{grid-column:1/-1}label{font-size:12px;font-weight:650;display:block;min-width:0}label input,label textarea{display:block;margin-top:5px}.ticket-fields{border-top:1px solid var(--line);margin-top:18px;padding-top:15px}.ticket-fields legend{float:left;width:100%}.ticket-fields .fields{clear:both}form .primary{margin-top:18px;width:100%}.notice{min-height:0;margin:10px 0 0;font-size:13px;color:var(--lime);line-height:1.45}.notice.error{color:#ffb3a5}.notice:empty{display:none}
+@media(max-width:760px){.layout{grid-template-columns:1fr}main{padding:27px 15px 40px}.bar-inner{padding:13px 15px}.heading{margin-bottom:22px}}
+@media(max-width:370px){.match,.fields{grid-template-columns:1fr}.ticket-summary{text-align:left}.mode{white-space:normal}}
+.match-tools{display:flex;gap:10px;align-items:center;justify-content:flex-end;margin-top:8px}.small{padding:5px 10px;font-size:12px}.actions{display:flex;gap:8px;margin-top:18px}.actions .primary{margin:0;flex:1}.actions .secondary{min-height:44px}.test-flow{margin-top:28px}.test-flow>h2{margin:0 0 14px;font-size:22px}.test-flow .layout{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.orders{margin-top:18px}.orders article{border-top:1px solid var(--line);padding:14px 21px}.orders article h3{margin:0 0 6px;font-size:15px}.orders article .actions{margin-top:10px}.orders article .primary{flex:0 auto;width:auto}.orders article .secondary{min-height:0}.orders .notice{padding:0 21px 14px}
+select{width:100%;margin-top:5px;padding:9px 10px;min-height:41px;border:1px solid #48535a;border-radius:7px;background:#151a1d;color:inherit;font:inherit;font-size:14px}select:focus-visible{outline:2px solid var(--lime);outline-offset:2px}
+@media(max-width:760px){.test-flow .layout{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header class="bar"><div class="bar-inner">
+  <div class="brand"><span class="mark" aria-hidden="true">⚽</span> Football Booking</div>
+  <span class="mode" id="mode"></span>
+</div></header>
+<main>
+  <div class="heading">
+    <h1>Quản lý trận đấu</h1>
+    <p id="context"></p>
+  </div>
+  <div class="layout">
+    <section class="panel" aria-labelledby="list-heading">
+      <div class="panel-head"><h2 id="list-heading">Danh sách trận</h2></div>
+      <div class="filters">
+        <input id="search" type="search" placeholder="Tìm theo đội hoặc sân" aria-label="Tìm theo đội hoặc sân">
+        <button class="secondary" id="reload" type="button">Tải lại</button>
+      </div>
+      <ul class="matches" id="matches" aria-label="Danh sách trận đấu"></ul>
+      <p id="empty" class="empty" hidden></p>
+      <p id="count" class="count" aria-live="polite"></p>
+    </section>
+    <form class="panel" id="create">
+      <div class="form-head"><h2 id="match-form-title">Thêm trận đấu</h2><p class="muted">Ngày và giờ thi đấu theo giờ Việt Nam.</p></div>
+      <fieldset aria-label="Thông tin trận đấu">
+        <div class="fields">
+          <label>Đội chủ nhà<input required maxlength="255" name="homeTeam" placeholder="Hà Nội"></label>
+          <label>Đội khách<input required maxlength="255" name="awayTeam" placeholder="Hải Phòng"></label>
+          <label>Sân vận động<input required maxlength="255" name="stadium" placeholder="Hàng Đẫy"></label>
+          <label>Ban tổ chức<input required maxlength="255" name="organizer" placeholder="Ban tổ chức giải"></label>
+          <label class="wide">Giờ thi đấu<input required name="startTime" type="datetime-local"></label>
+          <label class="wide">Mô tả<textarea name="description" rows="2"></textarea></label>
+        </div>
+      </fieldset>
+      <fieldset class="ticket-fields" id="ticket-fields">
+        <legend>Loại vé đầu tiên</legend>
+        <div class="fields">
+          <label class="wide">Tên loại vé<input required maxlength="255" name="ticketName" value="Vé thường"></label>
+          <label>Giá vé (₫)<input required name="price" type="number" step="1" min="0" max="999999999999" value="200000"></label>
+          <label>Số lượng<input required name="quantity" type="number" min="1" max="2147483647" step="1" value="20"></label>
+        </div>
+      </fieldset>
+      <div class="actions">
+        <button class="primary" type="submit" id="match-submit">Thêm trận</button>
+        <button class="secondary" id="edit-cancel" type="button" hidden>Thoát sửa</button>
+      </div>
+      <p class="notice" id="notice" role="status"></p>
+    </form>
+  </div>
+  <section class="test-flow" aria-labelledby="flow-title">
+    <h2 id="flow-title">Thử luồng đặt vé</h2>
+    <div class="layout">
+      <form id="customer-form" class="panel">
+        <div class="form-head"><h2>Đăng ký khách hàng</h2></div>
+        <div class="fields">
+          <label>Họ tên<input name="name" required maxlength="255" placeholder="Khách thử nghiệm"></label>
+          <label>Email<input name="email" type="email" required maxlength="255" placeholder="demo@example.com"></label>
+        </div>
+        <button class="primary" type="submit">Đăng ký khách</button>
+        <p class="notice" id="customer-notice" role="status"></p>
+      </form>
+      <form id="booking-form" class="panel">
+        <div class="form-head"><h2>Đặt vé</h2><p class="muted" id="active-customer">Đăng ký khách hàng trước khi đặt.</p></div>
+        <div class="fields">
+          <label class="wide">Chọn trận<select id="booking-match" required></select></label>
+          <label>Loại vé<select id="booking-ticket" required></select></label>
+          <label>Số vé<input id="booking-quantity" type="number" required min="1" step="1" value="1"></label>
+        </div>
+        <button class="primary" id="booking-submit" type="submit" disabled>Đặt vé</button>
+        <p class="notice" id="booking-notice" role="status"></p>
+      </form>
+    </div>
+    <section class="panel orders" aria-labelledby="orders-title">
+      <div class="panel-head"><h2 id="orders-title">Đơn đặt vé</h2></div>
+      <div id="orders-list"></div>
+      <p class="notice" id="orders-notice" role="status"></p>
+    </section>
+  </section>
+</main>
+<script>
+'use strict';
+const byId = id => document.getElementById(id);
+const form = byId('create');
+const search = byId('search');
+const reload = byId('reload');
+const demo = location.protocol === 'file:' || new URLSearchParams(location.search).get('demo') === '1';
+const money = new Intl.NumberFormat('vi-VN', {style:'currency',currency:'VND'});
+const kickoff = new Intl.DateTimeFormat('vi-VN', {dateStyle:'medium',timeStyle:'short',timeZone:'Asia/Ho_Chi_Minh'});
+const sample = [
+    { id: 1, homeTeam:'Hà Nội', awayTeam:'Hải Phòng', stadium:'Hàng Đẫy', startTime:'2026-12-08T19:00:00+07:00', ticketTypes:[{price:200000,totalQuantity:20}] },
+    { id: 2, homeTeam:'Nam Định', awayTeam:'Sông Lam Nghệ An', stadium:'Thiên Trường', startTime:'2026-12-12T18:00:00+07:00', ticketTypes:[{price:150000,totalQuantity:60}] },
+    { id: 3, homeTeam:'Bình Dương', awayTeam:'Đà Nẵng', stadium:'Gò Đậu', startTime:'2026-12-13T17:00:00+07:00', ticketTypes:[{price:120000,totalQuantity:40}] }
+];
+const storageKey = 'football-booking-preview-v1';
+let matches = [];
+let previewMatches = sample;
+let editing = null;
+let customer = null;
+let bookings = [];
+const demoCustomers = [];
+const demoOrders = [];
+if (demo) {
+    try { previewMatches = JSON.parse(localStorage.getItem(storageKey)) || sample; } catch {}
+}
+byId('mode').textContent = demo ? 'Dữ liệu mẫu' : 'PostgreSQL';
+byId('context').textContent = demo
+    ? 'Thử thêm trận và tra cứu trên dữ liệu mẫu của bản demo.'
+    : 'Thêm trận, khai báo loại vé và tra cứu lịch thi đấu.';
+
+function element(tag, text, className) {
+    const node = document.createElement(tag);
+    node.textContent = text;
+    if (className) node.className = className;
+    return node;
+}
+
+function render() {
+    const normalize = text => String(text ?? '').toLocaleLowerCase('vi');
+    const term = normalize(search.value.trim());
+    const visible = matches.filter(match =>
+        [match.homeTeam, match.awayTeam, match.stadium].some(value => normalize(value).includes(term)));
+    const list = byId('matches');
+    list.replaceChildren();
+    for (const match of visible) {
+        const row = element('li', '', 'match');
+        const info = element('div', '');
+        const label = match.title || match.homeTeam + ' vs ' + match.awayTeam;
+        const date = new Date(match.startTime);
+        const dateLabel = Number.isNaN(date.valueOf()) ? 'Chưa có giờ' : kickoff.format(date);
+        info.append(element('h3', label), element('p', match.stadium + ' · ' + dateLabel, 'muted'));
+        const tickets = match.ticketTypes || [];
+        const details = element('div', '', 'ticket-summary');
+        if (tickets.length) {
+            const least = Math.min(...tickets.map(ticket => Number(ticket.price)));
+            const available = tickets.reduce((sum, ticket, index) => sum + stock(match, ticket, index), 0);
+            details.append(element('strong', 'Từ ' + money.format(least)), element('span', available + ' vé còn lại'));
+        } else {
+            details.textContent = 'Chưa mở bán';
+        }
+        const tools = element('div', '', 'match-tools');
+        const edit = element('button', 'Sửa trận', 'secondary small');
+        edit.type = 'button';
+        edit.addEventListener('click', () => editMatch(match));
+        tools.append(edit);
+        details.append(tools);
+        row.append(info, details);
+        list.append(row);
+    }
+    const empty = byId('empty');
+    empty.hidden = visible.length > 0;
+    empty.textContent = term ? 'Không có trận phù hợp với từ khóa.' : 'Chưa có trận đấu. Hãy thêm trận đầu tiên.';
+    byId('count').textContent = visible.length + ' trận đấu';
+}
+
+async function request(options, path = '/api/events') {
+    const response = await fetch(path, options);
+    const data = await response.json().catch(() => null);
+    if (!response.ok) throw new Error(data?.message || 'API trả mã lỗi ' + response.status);
+    return data;
+}
+
+async function refresh() {
+    reload.disabled = true;
+    try {
+        matches = demo ? previewMatches : await request();
+        render();
+        renderBookingChoices();
+    } catch {
+        byId('empty').hidden = false;
+        byId('empty').textContent = 'Không tải được danh sách. Kiểm tra Spring Boot rồi bấm Tải lại.';
+        byId('count').textContent = '';
+    } finally {
+        reload.disabled = false;
+    }
+}
+
+function notify(text, error = false, id = 'notice') {
+    const notice = byId(id);
+    notice.textContent = text;
+    notice.classList.toggle('error', error);
+}
+
+function editMatch(match) {
+    if (byId('match-submit').disabled) return;
+    editing = match;
+    for (const field of ['homeTeam','awayTeam','stadium','organizer','description']) {
+        form.elements.namedItem(field).value = match[field] ?? '';
+    }
+    const kickoffTime = new Date(match.startTime);
+    const vietnamTime = new Date(kickoffTime.valueOf() + 7 * 3600000);
+    form.elements.namedItem('startTime').value = Number.isNaN(vietnamTime.valueOf()) ? '' : vietnamTime.toISOString().slice(0, 16);
+    byId('match-form-title').textContent = 'Sửa trận đấu';
+    byId('match-submit').textContent = 'Lưu thay đổi';
+    byId('edit-cancel').hidden = false;
+    byId('ticket-fields').hidden = true;
+    byId('ticket-fields').disabled = true;
+    notify('');
+    form.scrollIntoView({block:'nearest'});
+    form.elements.namedItem('homeTeam').focus();
+}
+
+function resetMatchForm() {
+    editing = null;
+    form.reset();
+    byId('match-form-title').textContent = 'Thêm trận đấu';
+    byId('match-submit').textContent = 'Thêm trận';
+    byId('edit-cancel').hidden = true;
+    byId('ticket-fields').hidden = false;
+    byId('ticket-fields').disabled = false;
+}
+
+form.addEventListener('submit', async event => {
+    event.preventDefault();
+    const fields = new FormData(form);
+    const value = key => String(fields.get(key) || '').trim();
+    const date = new Date(value('startTime') + '+07:00');
+    if (Number.isNaN(date.valueOf())) {
+        notify('Kiểm tra lại ngày và giờ thi đấu.', true);
+        return;
+    }
+    const payload = {
+        homeTeam:value('homeTeam'), awayTeam:value('awayTeam'), stadium:value('stadium'),
+        organizer:value('organizer'), description:value('description'),
+        startTime:date.toISOString()
+    };
+    if (!editing) {
+        payload.ticketTypes = [{name:value('ticketName'),price:Number(value('price')),totalQuantity:Number(value('quantity'))}];
+    }
+    if (![payload.homeTeam,payload.awayTeam,payload.stadium,payload.organizer,editing || payload.ticketTypes[0].name].every(Boolean)) {
+        notify('Điền đủ tên hai đội, sân, ban tổ chức và loại vé.', true);
+        return;
+    }
+    const submit = form.querySelector('button[type=submit]');
+    const previous = editing;
+    submit.disabled = true;
+    byId('edit-cancel').disabled = true;
+    notify('Đang lưu trận đấu…');
+    try {
+        let created;
+        if (demo) {
+            if (previous) {
+                created = {...previous, ...payload, title:payload.homeTeam + ' vs ' + payload.awayTeam};
+                previewMatches = previewMatches.map(match => match.id === previous.id ? created : match);
+            } else {
+                created = {...payload, id:Math.max(0, ...previewMatches.map(match => match.id)) + 1};
+                previewMatches = [created, ...previewMatches];
+            }
+            try { localStorage.setItem(storageKey, JSON.stringify(previewMatches)); } catch {}
+        } else {
+            created = await send(previous ? '/api/events/' + previous.id : '/api/events', previous ? 'PUT' : 'POST', payload);
+        }
+        notify((previous ? 'Đã sửa trận ' : 'Đã thêm trận ') + created.homeTeam + ' vs ' + created.awayTeam + ' · mã ' + created.id);
+        resetMatchForm();
+        search.value = '';
+        await refresh();
+    } catch (error) {
+        notify('Không thể lưu trận. ' + error.message, true);
+    } finally {
+        submit.disabled = false;
+        byId('edit-cancel').disabled = false;
+    }
+});
+byId('edit-cancel').addEventListener('click', () => { resetMatchForm(); notify(''); });
+
+const matchSelect = byId('booking-match');
+const ticketSelect = byId('booking-ticket');
+const bookingSubmit = byId('booking-submit');
+
+function send(path, method, body) {
+    const options = {method};
+    if (body !== undefined) {
+        options.headers = {'Content-Type':'application/json'};
+        options.body = JSON.stringify(body);
+    }
+    return request(options, path);
+}
+
+function option(label, value) {
+    const item = element('option', label);
+    item.value = value;
+    return item;
+}
+
+function ticketId(ticket, index) {
+    return ticket.id ?? index + 1;
+}
+
+function stock(match, ticket, index) {
+    if (!demo) return ticket.availableQuantity ?? ticket.totalQuantity;
+    const pending = demoOrders.filter(order => order.eventId === match.id && order.status !== 'CANCELLED');
+    const allocated = pending.flatMap(order => order.items)
+        .filter(item => item.ticketTypeId === ticketId(ticket, index))
+        .reduce((sum, item) => sum + item.quantity, 0);
+    return ticket.totalQuantity - allocated;
+}
+
+function renderBookingChoices() {
+    const previous = matchSelect.value;
+    matchSelect.replaceChildren(option('Chọn trận đấu', ''));
+    for (const match of matches) {
+        matchSelect.append(option(match.title || match.homeTeam + ' vs ' + match.awayTeam, match.id));
+    }
+    matchSelect.value = matches.some(match => String(match.id) === previous) ? previous : '';
+    renderTicketChoices();
+}
+
+function renderTicketChoices() {
+    const previous = ticketSelect.value;
+    const match = matches.find(item => item.id === Number(matchSelect.value));
+    ticketSelect.replaceChildren(option('Chọn loại vé', ''));
+    for (const [index, ticket] of (match?.ticketTypes || []).entries()) {
+        const available = stock(match, ticket, index);
+        ticketSelect.append(option((ticket.name || 'Vé thường') + ' · ' + money.format(ticket.price)
+            + ' · còn ' + available + ' vé', ticketId(ticket, index)));
+    }
+    const stillAvailable = Array.from(ticketSelect.options).some(item => item.value === previous);
+    ticketSelect.value = stillAvailable ? previous : '';
+    bookingSubmit.disabled = !customer;
+}
+
+function renderOrders() {
+    const list = byId('orders-list');
+    list.replaceChildren();
+    if (!bookings.length) {
+        list.append(element('p', 'Chưa có đơn đặt vé.', 'empty'));
+    }
+    for (const booking of bookings) {
+        const match = matches.find(item => item.id === booking.eventId);
+        const item = element('article', '');
+        const heading = match ? match.homeTeam + ' vs ' + match.awayTeam : 'Trận #' + booking.eventId;
+        const totalTickets = booking.items.reduce((sum, entry) => sum + entry.quantity, 0);
+        item.append(element('h3', 'Đơn #' + booking.id + ' · ' + heading),
+            element('p', booking.status + ' · ' + totalTickets + ' vé · ' + money.format(booking.totalAmount), 'muted'));
+        const actions = element('div', '', 'actions');
+        if (booking.status === 'PENDING') {
+            const pay = element('button', 'Thanh toán giả lập', 'primary small');
+            pay.type = 'button';
+            pay.addEventListener('click', () => changeOrder(booking, 'pay', actions));
+            actions.append(pay);
+        }
+        if (booking.status !== 'CANCELLED') {
+            const cancel = element('button', 'Hủy đơn', 'secondary small');
+            cancel.type = 'button';
+            cancel.addEventListener('click', () => changeOrder(booking, 'cancel', actions));
+            actions.append(cancel);
+        }
+        if (actions.children.length) item.append(actions);
+        list.append(item);
+    }
+}
+
+async function changeOrder(booking, action, buttons) {
+    for (const button of buttons.children) button.disabled = true;
+    notify('', false, 'orders-notice');
+    try {
+        let updated;
+        if (demo) {
+            updated = {...booking, status:action === 'pay' ? 'CONFIRMED' : 'CANCELLED'};
+            demoOrders[demoOrders.findIndex(order => order.id === updated.id)] = updated;
+        } else {
+            updated = await send('/api/bookings/' + booking.id + '/' + action, 'POST');
+        }
+        bookings = bookings.map(order => order.id === updated.id ? updated : order);
+        renderOrders();
+        notify(action === 'pay' ? 'Đã xác nhận thanh toán giả lập.' : 'Đã hủy đơn và trả lại vé.', false, 'orders-notice');
+        await refresh();
+    } catch (error) {
+        for (const button of buttons.children) button.disabled = false;
+        notify('Không thể cập nhật đơn. ' + error.message, true, 'orders-notice');
+    }
+}
+
+byId('customer-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    const customerForm = event.currentTarget;
+    const submit = customerForm.querySelector('button[type=submit]');
+    const fields = new FormData(customerForm);
+    const payload = {name:String(fields.get('name')).trim(),email:String(fields.get('email')).trim().toLowerCase()};
+    submit.disabled = true;
+    notify('', false, 'customer-notice');
+    try {
+        if (!payload.name) throw new Error('Hãy nhập họ tên khách hàng.');
+        if (demo) {
+            if (demoCustomers.some(item => item.email === payload.email)) throw new Error('Email đã được đăng ký.');
+            customer = {...payload, id:demoCustomers.length + 1};
+            demoCustomers.push(customer);
+        } else {
+            customer = await send('/api/customers', 'POST', payload);
+        }
+        bookings = [];
+        byId('active-customer').textContent = 'Đặt vé cho ' + customer.name + ' · khách #' + customer.id;
+        notify('Đã đăng ký khách #' + customer.id + '.', false, 'customer-notice');
+        notify('', false, 'orders-notice');
+        bookingSubmit.disabled = false;
+        renderOrders();
+    } catch (error) {
+        notify('Đăng ký chưa thành công. ' + error.message, true, 'customer-notice');
+    } finally {
+        submit.disabled = false;
+    }
+});
+
+byId('booking-form').addEventListener('submit', async event => {
+    event.preventDefault();
+    if (!customer) return;
+    const buyer = customer;
+    const match = matches.find(item => item.id === Number(matchSelect.value));
+    const index = match?.ticketTypes?.findIndex((ticket, i) => ticketId(ticket, i) === Number(ticketSelect.value)) ?? -1;
+    const quantity = Number(byId('booking-quantity').value);
+    if (index < 0 || !Number.isInteger(quantity) || quantity < 1) {
+        notify('Chọn trận, loại vé và số lượng hợp lệ.', true, 'booking-notice');
+        return;
+    }
+    const ticket = match.ticketTypes[index];
+    const entry = {ticketTypeId:ticketId(ticket, index),quantity};
+    const payload = {customerId:buyer.id,eventId:match.id,items:[entry]};
+    bookingSubmit.disabled = true;
+    notify('', false, 'booking-notice');
+    try {
+        let booking;
+        if (demo) {
+            if (stock(match, ticket, index) < quantity) throw new Error('Không đủ vé còn lại.');
+            booking = {...payload, id:demoOrders.length + 1, status:'PENDING', totalAmount:ticket.price * quantity};
+            demoOrders.push(booking);
+        } else {
+            booking = await send('/api/bookings', 'POST', payload);
+        }
+        if (customer.id === buyer.id) {
+            bookings = [booking, ...bookings];
+            renderOrders();
+            notify('Đã giữ vé cho đơn #' + booking.id + '.', false, 'booking-notice');
+        }
+        await refresh();
+    } catch (error) {
+        notify('Không thể đặt vé. ' + error.message, true, 'booking-notice');
+    } finally {
+        bookingSubmit.disabled = !customer;
+    }
+});
+matchSelect.addEventListener('change', renderTicketChoices);
+search.addEventListener('input', render);
+reload.addEventListener('click', refresh);
+renderOrders();
+refresh();
+</script>
+</body>
+</html>

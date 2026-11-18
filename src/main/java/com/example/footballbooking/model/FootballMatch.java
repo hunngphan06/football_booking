@@ -1,36 +1,56 @@
 package com.example.footballbooking.model;
 
+import jakarta.persistence.*;
+import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
+import org.hibernate.annotations.BatchSize;
 
-/** Thong tin mot tran dau. Chua phai JPA Entity va chua luu database. */
+@Entity
+@Table(name = "football_matches")
 public class FootballMatch {
-    private final Long id;
-    private final String title;
-    private final String homeTeam;
-    private final String awayTeam;
-    private final String stadium;
-    private final Instant startTime;
-    private final String description;
-    private final String organizer;
-    private final List<TicketType> ticketTypes;
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+    private String homeTeam;
+    private String awayTeam;
+    private String stadium;
+    private Instant startTime;
+    private String description;
+    private String organizer;
 
-    public FootballMatch(Long id, String homeTeam, String awayTeam, String stadium,
-                         Instant startTime, String description, String organizer,
-                         List<TicketType> ticketTypes) {
-        this.id = id;
-        this.title = homeTeam + " vs " + awayTeam;
+    @OneToMany(mappedBy = "match", cascade = CascadeType.PERSIST)
+    @OrderBy("id ASC")
+    @BatchSize(size = 50)
+    private List<TicketType> ticketTypes = new ArrayList<>();
+
+    protected FootballMatch() {
+    }
+
+    public FootballMatch(String homeTeam, String awayTeam, String stadium,
+                         Instant startTime, String description, String organizer) {
+        updateDetails(homeTeam, awayTeam, stadium, startTime, description, organizer);
+    }
+
+    public void updateDetails(String homeTeam, String awayTeam, String stadium,
+                              Instant startTime, String description, String organizer) {
         this.homeTeam = homeTeam;
         this.awayTeam = awayTeam;
         this.stadium = stadium;
         this.startTime = startTime;
         this.description = description;
         this.organizer = organizer;
-        this.ticketTypes = List.copyOf(ticketTypes);
+    }
+
+    public TicketType addTicketType(String name, BigDecimal price, int totalQuantity) {
+        TicketType ticketType = new TicketType(this, name, price, totalQuantity);
+        ticketTypes.add(ticketType);
+        return ticketType;
     }
 
     public Long getId() { return id; }
-    public String getTitle() { return title; }
+    public String getTitle() { return homeTeam + " vs " + awayTeam; }
     public String getHomeTeam() { return homeTeam; }
     public String getAwayTeam() { return awayTeam; }
     public String getStadium() { return stadium; }
@@ -38,5 +58,5 @@ public class FootballMatch {
     public String getCategory() { return "SPORTS"; }
     public String getDescription() { return description; }
     public String getOrganizer() { return organizer; }
-    public List<TicketType> getTicketTypes() { return ticketTypes; }
+    public List<TicketType> getTicketTypes() { return List.copyOf(ticketTypes); }
 }

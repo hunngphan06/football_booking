@@ -1,25 +1,19 @@
 package com.example.footballbooking.service;
 
-import com.example.footballbooking.exception.MatchNotFoundException;
+import com.example.footballbooking.dto.MatchRequest;
+import com.example.footballbooking.dto.TicketTypeRequest;
 import com.example.footballbooking.model.FootballMatch;
-import com.example.footballbooking.repository.FootballMatchRepository;
-import org.springframework.stereotype.Service;
+import com.example.footballbooking.model.TicketType;
+import java.time.Instant;
 import java.util.List;
 
-@Service
-public class FootballMatchService {
-    private final FootballMatchRepository repository;
+public interface FootballMatchService {
+    record MatchPage(List<FootballMatch> content, int page, int size, long totalElements, int totalPages) {}
 
-    
-    public FootballMatchService(FootballMatchRepository repository) {
-        this.repository = repository;
-    }
-
-    public List<FootballMatch> getMatches() {
-        return repository.findAll();
-    }
-
-    public FootballMatch getMatch(Long id) {
-        return repository.findById(id).orElseThrow(() -> new MatchNotFoundException(id));
-    }
+    List<FootballMatch> getMatches();
+    MatchPage search(String keyword, String venue, Instant from, Instant to, int page, int size);
+    FootballMatch getMatch(Long id);
+    FootballMatch createMatch(MatchRequest request);
+    FootballMatch updateMatch(Long id, MatchRequest request);
+    TicketType addTicketType(Long matchId, TicketTypeRequest request);
 }
