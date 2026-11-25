@@ -3,12 +3,13 @@ package com.example.footballbooking.service;
 import com.example.footballbooking.dto.BookingData.Booking;
 import com.example.footballbooking.dto.BookingData.BookingRequest;
 import com.example.footballbooking.dto.BookingData.Customer;
-import com.example.footballbooking.dto.BookingData.CustomerRequest;
 import com.example.footballbooking.dto.BookingData.Item;
 import com.example.footballbooking.dto.BookingData.ItemRequest;
 import com.example.footballbooking.exception.BookingException;
 import com.example.footballbooking.exception.InvalidRequestException;
 import com.example.footballbooking.repository.BookingRepository;
+import com.example.footballbooking.repository.PaymentRepository;
+import com.example.footballbooking.dto.PaymentData.Status;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
@@ -17,6 +18,7 @@ import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
 import org.springframework.dao.DuplicateKeyException;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,22 +27,26 @@ import org.springframework.transaction.annotation.Transactional;
 public class BookingServiceImpl implements BookingService {
     private final BookingRepository repository;
 
-    public BookingServiceImpl(BookingRepository repository) {
-        this.repository = repository;
-    }
+    private final PaymentRepository payments;
+    private final boolean demo;
 
-    private enum Status { PENDING, PAID, CONFIRMED, CANCELLED }
+    public BookingServiceImpl(BookingRepository repository, PaymentRepository payments,
+                              @Value("${booking.demo.enabled:false}") boolean demo) {
+        this.repository = repository;
+        this.payments = payments;
+        this.demo = demo;
+    }
 
     @Override
     @Transactional
-    public Customer register(CustomerRequest request) {
-        String name = requiredText(request.name(), "name");
-        String email = requiredText(request.email(), "email").toLowerCase(Locale.ROOT);
-        if (!email.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) {
+    public Customer register(String name, String email) {
+        String customerName = requiredText(name, "name");
+        String address = requiredText(email, "email").toLowerCase(Locale.ROOT);
+        if (!address.matches("[^\\s@]+@[^\\s@]+\\.[^\\s@]+")) {
             throw new InvalidRequestException("Email format is invalid");
         }
         try {
-            return new Customer(repository.insertCustomer(name, email), name, email);
+            return new Customer(repository.insertCustomer(customerName, address), customerName, address);
         } catch (DuplicateKeyException ex) {
             throw new BookingException(HttpStatus.CONFLICT, "Email is already registered");
         }
@@ -75,8 +81,10 @@ public class BookingServiceImpl implements BookingService {
             }
         }
         requireCustomer(request.customerId());
-        if (!repository.eventExists(request.eventId())) {
-            throw new BookingException(HttpStatus.NOT_FOUND, "Event does not exist");
+        boolean saleOpen = repository.lockEventSales(request.eventId())
+            .orElseThrow(() -> new BookingException(HttpStatus.NOT_FOUND, "Event does not exist"));
+        if (!saleOpen) {
+            throw new BookingException(HttpStatus.CONFLICT, "Ticket sales are closed for this event");
         }
         List<Item> items = new ArrayList<>();
         BigDecimal total = BigDecimal.ZERO;
@@ -109,34 +117,26 @@ public class BookingServiceImpl implements BookingService {
 
     @Override
     @Transactional
-    public Booking pay(long id) {
-        Status status = lockStatus(id);
-        if (status == Status.CANCELLED) {
-            throw new BookingException(HttpStatus.CONFLICT, "Cancelled booking cannot be paid");
-        }
-        if (status == Status.PENDING) {
-            repository.markPaid(id);
-        }
-        if (status != Status.CONFIRMED) {
-            repository.updateStatus(id, Status.CONFIRMED.name());
-        }
-        return get(id);
-    }
-
-    @Override
-    @Transactional
     public Booking cancel(long id) {
-        if (lockStatus(id) != Status.CANCELLED) {
+        String status = repository.lockStatus(id).orElseThrow(this::missingBooking);
+        var payment = payments.find(id);
+        if (payment.isPresent() && payment.get().status() == Status.PENDING) {
+            throw new BookingException(HttpStatus.CONFLICT, "Reconcile the pending payment before cancelling");
+        }
+        if (!"CANCELLED".equals(status)) {
             for (Item item : repository.findItems(id)) {
                 repository.release(item.ticketTypeId(), item.quantity());
             }
-            repository.updateStatus(id, Status.CANCELLED.name());
+            repository.updateStatus(id, "CANCELLED");
+        }
+        if (payment.isPresent() && payment.get().status() == Status.SUCCEEDED) {
+            if (demo) {
+                payments.updateStatus(id, Status.REFUND_PENDING);
+            } else {
+                payments.recordRefund(id);
+            }
         }
         return get(id);
-    }
-
-    private Status lockStatus(long id) {
-        return repository.lockStatus(id).map(Status::valueOf).orElseThrow(this::missingBooking);
     }
 
     private BookingException missingBooking() {

@@ -1,0 +1,79 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Đặt vé · Event Booking</title>
+    <link rel="stylesheet" href="/assets/booking.css">
+    <script type="module" src="/assets/events.js"></script>
+</head>
+<body>
+<header><nav class="topbar"><a class="brand" href="/events">Event Booking</a><a href="/admin">Trang quản trị</a></nav></header>
+<main>
+    <div class="hero"><h1>Tìm sự kiện. Đặt vé.</h1><p>Chọn trận bóng, suất chiếu hoặc đêm nhạc bạn muốn tham dự.</p></div>
+    <section class="panel" aria-label="Tài khoản khách">
+        <div class="auth-grid">
+            <form id="login" hidden>
+                <h2>Đăng nhập</h2>
+                <label>Email<input type="email" name="email" autocomplete="username" required></label>
+                <label>Mật khẩu<input type="password" name="password" autocomplete="current-password" required></label>
+                <button class="primary" type="submit">Đăng nhập</button>
+            </form>
+            <form id="registration" hidden>
+                <h2>Đăng ký tài khoản</h2>
+                <label>Họ tên<input name="name" autocomplete="name" required maxlength="255"></label>
+                <label>Email<input type="email" name="email" autocomplete="email" required maxlength="255"></label>
+                <label>Mật khẩu<input type="password" name="password" autocomplete="new-password" required minlength="8" maxlength="72"></label>
+                <button class="secondary" type="submit">Đăng ký</button>
+            </form>
+        </div>
+        <div id="account-bar" hidden><strong id="account-name"></strong><button class="secondary" type="button" id="logout">Đăng xuất</button></div>
+        <button type="button" class="secondary" id="demo-login" hidden>Dùng tài khoản khách demo</button>
+        <p class="notice" role="status" id="auth-message"></p>
+    </section>
+    <section aria-labelledby="events-heading">
+        <div class="toolbar"><h2 id="events-heading">Sự kiện đang mở bán</h2><button class="secondary" id="reload" type="button">Tải lại sự kiện</button></div>
+        <div class="filters panel">
+            <label>Tìm tên hoặc địa điểm<input type="search" id="search" placeholder="Chuyến tàu mùa đông"></label>
+            <label>Danh mục<select id="category-filter"><option value="">Tất cả</option></select></label>
+        </div>
+        <details class="panel"><summary>Tìm bằng trợ lý</summary>
+            <form id="assistant-search"><label>Câu tìm kiếm<input name="query" required maxlength="2000" placeholder="Tìm phim, vé dưới 100k"></label><button class="secondary" type="submit">Tìm bằng trợ lý</button></form>
+            <p class="notice" id="assistant-message" role="status"></p>
+        </details>
+        <p id="event-message" class="notice" role="status"></p>
+        <div id="event-cards" class="cards"></div>
+    </section>
+    <section id="orders" hidden aria-labelledby="orders-heading">
+        <div class="toolbar"><h2 id="orders-heading">Đơn của tôi</h2><button class="secondary" id="reload-orders" type="button">Tải lại đơn</button></div>
+        <div class="panel">
+            <label id="scenario-label" hidden>Kịch bản thanh toán giả lập
+                <select id="scenario">
+                    <option value="SUCCESS">Thành công</option>
+                    <option value="FAIL_BEFORE_CHARGE">Lỗi trước khi trừ tiền</option>
+                    <option value="TIMEOUT">Chưa rõ kết quả</option>
+                    <option value="FAIL_AFTER_CHARGE">Đã trừ tiền, lỗi xác nhận đơn</option>
+                </select>
+            </label>
+            <p class="notice" id="order-message" role="status"></p>
+            <div id="order-list"></div>
+        </div>
+    </section>
+    <dialog id="details" aria-labelledby="detail-title">
+        <h2 id="detail-title">Thông tin sự kiện</h2>
+        <p id="detail-when" class="muted"></p><p id="detail-description"></p>
+        <p id="login-needed" class="muted" hidden>Đăng nhập tài khoản khách để đặt vé.</p>
+        <form id="reserve" hidden>
+            <label>Loại vé<select name="ticket" required></select></label>
+            <label>Số vé<input name="quantity" type="number" min="1" value="1" required></label>
+            <p id="total"></p><button class="primary" type="submit">Đặt vé</button>
+        </form>
+        <p class="notice" id="booking-message" role="status"></p>
+        <details><summary>Hỏi về sự kiện</summary>
+            <form id="assistant-ask"><label>Câu hỏi<input name="question" required maxlength="2000" placeholder="Có chỗ gửi xe không?"></label><button class="secondary" type="submit">Gửi câu hỏi</button></form>
+            <p id="ai-answer" class="notice" role="status"></p>
+        </details>
+        <div class="row"><button type="button" class="secondary" id="close-details">Đóng</button></div>
+    </dialog>
+</main>
+</body>
+</html>

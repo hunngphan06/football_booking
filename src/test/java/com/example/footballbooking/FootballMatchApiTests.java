@@ -7,10 +7,11 @@ import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.jdbc.Sql;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
+import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 @SpringBootTest
@@ -19,6 +20,20 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class FootballMatchApiTests {
     @Autowired
     private MockMvc mvc;
+
+    @Test
+    void openApiIncludesBookingAiAndPdfRoutesAndCategoryFilterWorks() throws Exception {
+        mvc.perform(get("/v3/api-docs"))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.paths['/api/bookings/{id}/confirmation']").exists())
+            .andExpect(jsonPath("$.paths['/api/assistant/search']").exists())
+            .andExpect(jsonPath("$.paths['/api/events/{id}/ask']").exists());
+        mvc.perform(get("/swagger-ui.html")).andExpect(status().is3xxRedirection());
+        mvc.perform(get("/api/events").param("category", "MUSIC"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(0));
+        mvc.perform(get("/api/events").param("category", "SPORTS"))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
+    }
 
     @Test
     void listEventsReturnsSampleMatchesWithTicketTypes() throws Exception {
@@ -138,5 +153,12 @@ class FootballMatchApiTests {
             .andExpect(jsonPath("$.message").value("totalQuantity must be a positive integer"));
         mvc.perform(get("/api/events"))
             .andExpect(jsonPath("$.length()").value(2));
+    }
+    private MockHttpServletRequestBuilder post(String path, Object... values) {
+        return MockMvcRequestBuilders.post(path, values).with(csrf()).with(SecurityRequests.admin());
+    }
+
+    private MockHttpServletRequestBuilder put(String path, Object... values) {
+        return MockMvcRequestBuilders.put(path, values).with(csrf()).with(SecurityRequests.admin());
     }
 }

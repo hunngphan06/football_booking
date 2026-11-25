@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Quản trị · Event Booking</title>
+    <link rel="stylesheet" href="/assets/booking.css">
+    <script type="module" src="/assets/admin.js"></script>
+</head>
+<body>
+<header><nav class="topbar"><a class="brand" href="/admin">Event Booking · Quản trị</a><a href="/events">Trang đặt vé</a></nav></header>
+<main>
+    <div class="hero"><h1>Quản trị sự kiện</h1><p>Quản lý lịch sự kiện, danh mục và số lượng vé đang mở bán.</p></div>
+    <section class="panel" aria-label="Tài khoản quản trị">
+        <form id="login" hidden>
+            <h2>Đăng nhập quản trị</h2>
+            <div class="field-grid">
+                <label>Email<input type="email" name="email" autocomplete="username" required></label>
+                <label>Mật khẩu<input type="password" name="password" autocomplete="current-password" required></label>
+            </div>
+            <button class="primary" type="submit">Đăng nhập</button>
+        </form>
+        <div id="account-bar" hidden><strong id="account-name"></strong><button class="secondary" type="button" id="logout">Đăng xuất</button></div>
+        <div class="row"><button class="secondary" type="button" id="demo-login" hidden>Dùng tài khoản admin demo</button></div>
+        <p class="notice" role="status" id="auth-message"></p>
+    </section>
+    <section id="workspace" hidden>
+        <div class="toolbar"><h2>Sự kiện</h2><div class="row"><button class="secondary" id="reload" type="button">Tải lại</button><button class="primary" id="add-event" type="button">Thêm sự kiện</button></div></div>
+        <p id="admin-message" class="notice" role="status"></p>
+        <div class="table-scroll panel">
+            <table><thead><tr><th>Sự kiện</th><th>Danh mục</th><th>Vé còn lại</th><th>Bán vé</th><th>Thao tác</th></tr></thead><tbody id="event-rows"></tbody></table>
+        </div>
+        <div class="toolbar"><h2>Danh mục</h2><button class="primary" id="add-category" type="button">Thêm danh mục</button></div>
+        <div class="table-scroll panel">
+            <table><thead><tr><th>Tên</th><th>Mã</th><th>Trạng thái</th><th>Thao tác</th></tr></thead><tbody id="category-rows"></tbody></table>
+        </div>
+    </section>
+    <dialog id="event-dialog" aria-labelledby="event-heading">
+        <form id="event-form">
+            <h2 id="event-heading">Sự kiện</h2>
+            <label>Tên sự kiện<input name="title" required maxlength="514"></label>
+            <div class="field-grid">
+                <label>Danh mục<select name="category" required></select></label>
+                <label>Địa điểm<input name="venue" required maxlength="255"></label>
+                <label>Giờ bắt đầu (giờ Việt Nam)<input type="datetime-local" name="startTime" required></label>
+                <label>Ban tổ chức<input name="organizer" required maxlength="255"></label>
+                <label>Bán vé<select name="saleOpen"><option value="true">Đang mở</option><option value="false">Đã đóng</option></select></label>
+            </div>
+            <label>Mô tả<textarea name="description" rows="2"></textarea></label>
+            <fieldset id="initial-ticket">
+                <legend>Loại vé đầu tiên</legend>
+                <label>Tên loại vé<input name="ticketName" value="Vé thường" required maxlength="255"></label>
+                <div class="field-grid">
+                    <label>Giá vé (₫)<input type="number" name="price" min="0" max="999999999999" step="0.01" value="100000" required></label>
+                    <label>Số lượng<input type="number" name="quantity" min="1" max="2147483647" value="20" required></label>
+                </div>
+            </fieldset>
+            <div class="row"><button class="primary" type="submit">Lưu sự kiện</button><button data-close class="secondary" type="button">Đóng</button></div>
+            <p class="notice" id="event-message" role="status"></p>
+        </form>
+    </dialog>
+    <dialog id="category-dialog" aria-labelledby="category-heading">
+        <form id="category-form">
+            <h2 id="category-heading">Danh mục</h2>
+            <label>Mã danh mục<input name="code" pattern="[a-zA-Z][a-zA-Z0-9_]*" maxlength="32" required placeholder="THEATRE"></label>
+            <label>Tên hiển thị<input name="name" maxlength="100" required></label>
+            <label>Trạng thái<select name="active"><option value="true">Đang dùng</option><option value="false">Ngừng dùng</option></select></label>
+            <div class="row"><button class="primary" type="submit">Lưu danh mục</button><button data-close class="secondary" type="button">Đóng</button></div>
+            <p class="notice" id="category-message" role="status"></p>
+        </form>
+    </dialog>
+    <dialog id="ticket-dialog" aria-labelledby="ticket-heading">
+        <h2 id="ticket-heading">Loại vé</h2>
+        <div id="ticket-list"></div>
+        <form id="ticket-form">
+            <h3 id="ticket-form-heading">Thêm loại vé</h3>
+            <label>Tên loại vé<input name="name" required maxlength="255"></label>
+            <div class="field-grid">
+                <label>Giá vé (₫)<input type="number" name="price" min="0" max="999999999999" step="0.01" required></label>
+                <label>Tổng số vé<input type="number" name="totalQuantity" min="1" max="2147483647" required></label>
+            </div>
+            <div class="row"><button class="primary" type="submit">Lưu loại vé</button><button class="secondary" id="new-ticket" type="button" hidden>Thêm vé mới</button><button data-close class="secondary" type="button">Đóng</button></div>
+            <p class="notice" id="ticket-message" role="status"></p>
+        </form>
+    </dialog>
+</main>
+</body>
+</html>
