@@ -109,3 +109,11 @@ CREATE TABLE IF NOT EXISTS booking_accounts (
     customer_id BIGINT UNIQUE REFERENCES customers (id),
     CHECK ((role = 'USER' AND customer_id IS NOT NULL) OR (role = 'ADMIN' AND customer_id IS NULL))
 );
+
+ALTER TABLE events ADD COLUMN IF NOT EXISTS cover_version VARCHAR(36);
+
+CREATE TABLE IF NOT EXISTS event_covers (
+    event_id BIGINT PRIMARY KEY REFERENCES events (id) ON DELETE CASCADE,
+    content_type VARCHAR(16) NOT NULL CHECK (content_type IN ('image/jpeg', 'image/png')),
+    image_data BYTEA NOT NULL
+);

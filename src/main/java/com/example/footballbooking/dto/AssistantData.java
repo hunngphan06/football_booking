@@ -12,7 +12,8 @@ public final class AssistantData {
     public record QuestionRequest(String question) {}
     public record Answer(String answer) {}
     public record Criteria(String keyword, String venue, Instant from, Instant to,
-                           BigDecimal maxPrice, String category) {}
+                           BigDecimal minPrice, boolean minPriceExclusive,
+                           BigDecimal maxPrice, boolean maxPriceExclusive, String category) {}
     public record SearchResult(Criteria criteria, List<Event> content, int page, int size,
                                long totalElements, int totalPages) {}
 }

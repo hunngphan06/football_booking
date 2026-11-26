@@ -2,7 +2,13 @@ package com.example.footballbooking;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import java.awt.Color;
+import java.awt.image.BufferedImage;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.nio.charset.StandardCharsets;
 import java.util.List;
+import javax.imageio.ImageIO;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.Executors;
@@ -12,6 +18,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.http.HttpMethod;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -24,7 +32,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:booking_flow_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
-    "booking.demo.enabled=true"
+    "booking.demo.enabled=true",
+    "booking.demo.payment-scenarios-enabled=true"
 })
 @AutoConfigureMockMvc
 class BookingApiTests {
@@ -301,6 +310,84 @@ class BookingApiTests {
                                              {"name":"VIP","price":500000,"totalQuantity":1}]}
             """)).andExpect(status().isCreated()).andReturn().getResponse();
         return json.readTree(response.getContentAsString());
+    }
+
+    @Test
+    void adminCanCreateReplaceAndRemoveEventCover() throws Exception {
+        var created = mvc.perform(MockMvcRequestBuilders.multipart("/api/events")
+            .file(eventPart("Suất có ảnh")).file(coverPart("png", Color.RED)).with(csrf()).with(SecurityRequests.admin()))
+            .andExpect(status().isCreated()).andReturn().getResponse();
+        JsonNode event = json.readTree(created.getContentAsByteArray());
+        long id = event.get("id").asLong();
+        String firstUrl = event.get("coverUrl").asText();
+        assertCover(firstUrl, MediaType.IMAGE_PNG, Color.RED);
+
+        mvc.perform(put("/api/events/{id}", id).contentType(MediaType.APPLICATION_JSON)
+            .content(eventBodyForCover("Giữ ảnh"))).andExpect(status().isOk())
+            .andExpect(jsonPath("$.coverUrl").value(firstUrl));
+
+        var updated = mvc.perform(MockMvcRequestBuilders.multipart(HttpMethod.PUT, "/api/events/{id}", id)
+            .file(eventPart("Thay ảnh")).file(coverPart("jpeg", Color.BLUE)).with(csrf()).with(SecurityRequests.admin()))
+            .andExpect(status().isOk()).andReturn().getResponse();
+        String secondUrl = json.readTree(updated.getContentAsByteArray()).get("coverUrl").asText();
+        org.junit.jupiter.api.Assertions.assertNotEquals(firstUrl, secondUrl);
+        assertCover(secondUrl, MediaType.IMAGE_JPEG, Color.BLUE);
+
+        mvc.perform(MockMvcRequestBuilders.multipart(HttpMethod.PUT, "/api/events/{id}", id)
+            .file(eventPart("Gỡ ảnh")).param("removeCover", "true").with(csrf()).with(SecurityRequests.admin()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.coverUrl").isEmpty());
+        mvc.perform(MockMvcRequestBuilders.get(secondUrl)).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void invalidOrUnauthorizedCoverDoesNotChangeTheEvent() throws Exception {
+        JsonNode event = createMatch();
+        long id = event.get("id").asLong();
+        var invalid = new MockMultipartFile("cover", "fake.png", "image/png", new byte[]{1, 2, 3});
+        mvc.perform(MockMvcRequestBuilders.multipart(HttpMethod.PUT, "/api/events/{id}", id)
+            .file(eventPart("Tiêu đề không được lưu")).file(invalid).with(csrf()).with(SecurityRequests.admin()))
+            .andExpect(status().isBadRequest());
+        mvc.perform(MockMvcRequestBuilders.multipart(HttpMethod.PUT, "/api/events/{id}", id)
+            .file(eventPart("Tiêu đề không được lưu")).file(coverPart("png", Color.RED)).with(csrf())
+            .with(SecurityRequests.customer(1)))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/events/{id}", id)).andExpect(status().isOk())
+            .andExpect(jsonPath("$.title").value(event.get("title").asText()))
+            .andExpect(jsonPath("$.coverUrl").isEmpty());
+    }
+
+    private MockMultipartFile eventPart(String title) {
+        return new MockMultipartFile("event", "", "application/json",
+            eventBodyForCover(title).getBytes(StandardCharsets.UTF_8));
+    }
+
+    private String eventBodyForCover(String title) {
+        return """
+            {"title":"%s","category":"CINEMA","venue":"Rạp A","organizer":"BTC",
+             "startTime":"2026-12-08T12:00:00Z"}
+            """.formatted(title);
+    }
+
+    private MockMultipartFile coverPart(String format, Color color) throws Exception {
+        var picture = new BufferedImage(8, 6, BufferedImage.TYPE_INT_RGB);
+        var graphics = picture.createGraphics();
+        graphics.setColor(color);
+        graphics.fillRect(0, 0, picture.getWidth(), picture.getHeight());
+        graphics.dispose();
+        var bytes = new ByteArrayOutputStream();
+        ImageIO.write(picture, format, bytes);
+        return new MockMultipartFile("cover", "cover." + format, "image/" + format, bytes.toByteArray());
+    }
+
+    private void assertCover(String url, MediaType contentType, Color color) throws Exception {
+        var response = mvc.perform(MockMvcRequestBuilders.get(url)).andExpect(status().isOk())
+            .andExpect(content().contentType(contentType))
+            .andExpect(header().string("X-Content-Type-Options", "nosniff")).andReturn().getResponse();
+        var picture = ImageIO.read(new ByteArrayInputStream(response.getContentAsByteArray()));
+        var actual = new Color(picture.getRGB(0, 0));
+        org.junit.jupiter.api.Assertions.assertTrue(Math.abs(actual.getRed() - color.getRed()) < 5
+            && Math.abs(actual.getGreen() - color.getGreen()) < 5
+            && Math.abs(actual.getBlue() - color.getBlue()) < 5);
     }
 
     private MockHttpServletRequestBuilder post(String path, Object... values) {

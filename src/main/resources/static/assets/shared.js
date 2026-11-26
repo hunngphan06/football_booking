@@ -12,7 +12,7 @@ export async function api(path, method = 'GET', body) {
         const token = await tokenResponse.json();
         headers[token.headerName] = token.token;
     }
-    if (body !== undefined) {
+    if (body !== undefined && !(body instanceof FormData)) {
         const isForm = body instanceof URLSearchParams;
         headers['Content-Type'] = isForm ? 'application/x-www-form-urlencoded' : 'application/json';
         body = isForm ? body : JSON.stringify(body);
@@ -20,7 +20,11 @@ export async function api(path, method = 'GET', body) {
     const response = await fetch(path, {method, headers, body, cache:'no-store'});
     if (response.status === 204) return null;
     const data = await response.json().catch(() => null);
-    if (!response.ok) throw new Error(data?.message || 'API trả mã lỗi ' + response.status);
+    if (!response.ok) {
+        const error = new Error(data?.message || 'API trả mã lỗi ' + response.status);
+        error.status = response.status;
+        throw error;
+    }
     return data;
 }
 
@@ -49,80 +53,39 @@ export function message(node, content = '', error = false) {
     node.classList.toggle('error', error);
 }
 
-export async function startAccount(role, onChange) {
-    const login = find('#login');
-    const registration = find('#registration');
-    const accountBar = find('#account-bar');
-    const authMessage = find('#auth-message');
-    const demoLogin = find('#demo-login');
-    const logout = find('#logout');
-    const demoCredentials = role === 'ADMIN'
-        ? {email:'admin@demo.example', password:'AdminDemo2026!'}
-        : {email:'khach@demo.example', password:'KhachDemo2026!'};
+export function catalogEvents(eventList) {
+    const events = eventList.filter(event => event.saleOpen)
+        .sort((first, second) => Date.parse(first.startTime) - Date.parse(second.startTime));
+    const featured = events.find(event => event.ticketTypes.some(ticket => ticket.availableQuantity > 0)) || events[0];
+    return {events, featured};
+}
 
-    async function refresh() {
-        const session = await api('/api/auth/me');
-        const active = session.account?.role === role ? session.account : null;
-        login.hidden = Boolean(session.account);
-        if (registration) registration.hidden = Boolean(session.account);
-        demoLogin.hidden = !session.demo || Boolean(session.account);
-        accountBar.hidden = !session.account;
-        find('#account-name').textContent = active?.name || 'Bạn đang dùng tài khoản của trang kia.';
-        await onChange(active, session.demo);
+const categoryArt = {
+    SPORTS: '/assets/illustrations/football.jpg',
+    CINEMA: '/assets/illustrations/cinema.jpg',
+    MUSIC: '/assets/illustrations/music.jpg'
+};
+
+export function eventCover(event, {eager = false} = {}) {
+    const cover = element('div', '', 'event-cover');
+    cover.dataset.category = event.category;
+    const fallback = Object.hasOwn(categoryArt, event.category) ? categoryArt[event.category] : null;
+    if (event.coverUrl || fallback) {
+        const image = element('img');
+        image.alt = '';
+        image.loading = eager ? 'eager' : 'lazy';
+        image.decoding = 'async';
+        if (eager) image.fetchPriority = 'high';
+        image.addEventListener('error', () => {
+            if (fallback && image.getAttribute('src') !== fallback) image.src = fallback;
+            else image.remove();
+        });
+        image.src = event.coverUrl || fallback;
+        cover.append(image);
     }
+    return cover;
+}
 
-    async function signIn(credentials) {
-        await api('/api/auth/login', 'POST', new URLSearchParams(credentials));
-        message(authMessage);
-        await refresh();
-    }
-
-    login.addEventListener('submit', async event => {
-        event.preventDefault();
-        const submit = login.querySelector('button[type=submit]');
-        submit.disabled = true;
-        try {
-            await signIn(new FormData(login));
-            login.reset();
-        } catch (error) {
-            message(authMessage, error.message, true);
-        } finally {
-            submit.disabled = false;
-        }
-    });
-    demoLogin.addEventListener('click', async () => {
-        demoLogin.disabled = true;
-        try {
-            await signIn(demoCredentials);
-        } catch (error) {
-            message(authMessage, error.message, true);
-        } finally {
-            demoLogin.disabled = false;
-        }
-    });
-    logout.addEventListener('click', async () => {
-        try {
-            await api('/api/auth/logout', 'POST');
-            message(authMessage);
-            await refresh();
-        } catch (error) {
-            message(authMessage, error.message, true);
-        }
-    });
-    registration?.addEventListener('submit', async event => {
-        event.preventDefault();
-        const submit = registration.querySelector('button[type=submit]');
-        submit.disabled = true;
-        try {
-            const details = Object.fromEntries(new FormData(registration));
-            await api('/api/auth/register', 'POST', details);
-            await signIn({email:details.email, password:details.password});
-            registration.reset();
-        } catch (error) {
-            message(authMessage, error.message, true);
-        } finally {
-            submit.disabled = false;
-        }
-    });
-    await refresh();
+export function loginUrl(next = '/events') {
+    return '/login?next=' + encodeURIComponent(next);
 }

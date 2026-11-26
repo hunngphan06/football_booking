@@ -7,6 +7,7 @@ import com.sun.net.httpserver.HttpServer;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
@@ -26,28 +27,29 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:assistant_test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
-    "assistant.api-key=test-only", "assistant.model=test-model"
+    "assistant.api-key=test-only"
 })
 @AutoConfigureMockMvc
 @Sql("/match-fixtures.sql")
 class AssistantApiTests {
     private static final ConcurrentLinkedQueue<String> answers = new ConcurrentLinkedQueue<>();
+    private static final AtomicInteger nextErrorStatus = new AtomicInteger(500);
     private static final AtomicReference<String> lastRequest = new AtomicReference<>();
     private static final HttpServer server = startServer();
     @Autowired private MockMvc mvc;
 
     @DynamicPropertySource
     static void properties(DynamicPropertyRegistry registry) {
-        registry.add("assistant.base-url", () -> "http://127.0.0.1:" + server.getAddress().getPort() + "/v1");
+        registry.add("assistant.base-url", () -> "http://127.0.0.1:" + server.getAddress().getPort() + "/openai/v1");
     }
 
     private static HttpServer startServer() {
         try {
             var http = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
-            http.createContext("/v1/chat/completions", exchange -> {
+            http.createContext("/openai/v1/chat/completions", exchange -> {
                 lastRequest.set(new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8));
                 String content = answers.poll();
-                int status = content == null ? 500 : 200;
+                int status = content == null ? nextErrorStatus.getAndSet(500) : 200;
                 String body = content == null ? "{}" : new ObjectMapper().writeValueAsString(java.util.Map.of(
                     "choices", java.util.List.of(java.util.Map.of("finish_reason", "stop",
                         "message", java.util.Map.of("content", content)))));
@@ -79,7 +81,10 @@ class AssistantApiTests {
                 .content("{\"query\":\"Sao Mai dưới 200k\",\"size\":1}"))
             .andExpect(status().isOk()).andExpect(jsonPath("$.content[0].id").value(1))
             .andExpect(jsonPath("$.totalElements").value(1));
-        assertTrue(lastRequest.get().contains("test-model"));
+        var payload = new ObjectMapper().readTree(lastRequest.get());
+        assertEquals("qwen/qwen3.8-27b", payload.path("model").asText());
+        assertEquals("none", payload.path("reasoning_effort").asText());
+        assertEquals("json_object", payload.path("response_format").path("type").asText());
     }
 
     @Test
@@ -95,6 +100,22 @@ class AssistantApiTests {
     }
 
     @Test
+    void priceComparisonsRespectTheThreshold() throws Exception {
+        assertPriceMatches("vé trên 199k", "{\"minPrice\":199000,\"minPriceExclusive\":true}", 1);
+        assertPriceMatches("vé trên 200k", "{\"minPrice\":200000,\"minPriceExclusive\":true}", 0);
+        assertPriceMatches("vé từ 200k", "{\"minPrice\":200000}", 1);
+        assertPriceMatches("vé dưới 200k", "{\"maxPrice\":200000,\"maxPriceExclusive\":true}", 0);
+        assertPriceMatches("vé tối đa 200k", "{\"maxPrice\":200000}", 1);
+    }
+
+    private void assertPriceMatches(String query, String criteria, int count) throws Exception {
+        answers.add(criteria);
+        mvc.perform(post("/api/assistant/search").contentType(MediaType.APPLICATION_JSON)
+                .content(new ObjectMapper().writeValueAsString(java.util.Map.of("query", query))))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.totalElements").value(count));
+    }
+
+    @Test
     void askSendsOnlyEventContextAndReturnsTheProvidersAnswer() throws Exception {
         answers.add("{\"answer\":\"Thông tin chưa được cung cấp.\"}");
         mvc.perform(post("/api/events/1/ask").contentType(MediaType.APPLICATION_JSON)
@@ -103,6 +124,7 @@ class AssistantApiTests {
             .andExpect(jsonPath("$.answer").value("Thông tin chưa được cung cấp."));
         assertTrue(lastRequest.get().contains("FC Sao Mai vs FC Song Xanh"));
         assertTrue(lastRequest.get().contains("description"));
+        assertTrue(lastRequest.get().contains("2026-12-05T19:00+07:00"));
         assertFalse(lastRequest.get().contains("customerId"));
     }
 
@@ -117,6 +139,15 @@ class AssistantApiTests {
                 .content("{\"question\":\"Sân nào?\"}"))
             .andExpect(status().isBadGateway()).andExpect(jsonPath("$.message")
                 .value("AI provider failed or returned an invalid response"));
+    }
+
+    @Test
+    void providerQuotaLimitReturns429() throws Exception {
+        nextErrorStatus.set(429);
+        mvc.perform(post("/api/events/1/ask").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"question\":\"Sân nào?\"}"))
+            .andExpect(status().isTooManyRequests())
+            .andExpect(jsonPath("$.message").value("Đã chạm hạn mức của trợ lý AI. Hãy thử lại sau."));
     }
 
     @Test

@@ -1,4 +1,5 @@
-import {api, find, money, dateTime, element, option, button, message, startAccount} from './shared.js';
+import {api, find, money, dateTime, element, option, button, message} from './shared.js';
+import {showAccountMenu} from './navigation.js';
 
 const eventDialog = find('#event-dialog');
 const categoryDialog = find('#category-dialog');
@@ -7,8 +8,15 @@ const eventForm = find('#event-form');
 const categoryForm = find('#category-form');
 const ticketForm = find('#ticket-form');
 const adminMessage = find('#admin-message');
+const coverInput = find('#cover-input');
+const coverImage = find('#cover-preview-image');
+const coverEmpty = find('#cover-empty');
+const clearCover = find('#clear-cover');
+const coverMessage = find('#cover-message');
 let categories = [];
 let editingEvent = null;
+let coverPreviewUrl = null;
+let removeCover = false;
 let editingCategory = null;
 let ticketEventId = null;
 let editingTicket = null;
@@ -65,6 +73,9 @@ async function remove(path, label) {
 function editEvent(event) {
     editingEvent = event;
     eventForm.reset();
+    removeCover = false;
+    message(coverMessage);
+    renderCoverPreview();
     const fields = eventForm.elements;
     fields.category.replaceChildren(...categories.filter(category => category.active || category.code === event?.category)
         .map(category => option(category.name, category.code)));
@@ -95,12 +106,79 @@ eventForm.addEventListener('submit', async submit => {
         data.homeTeam = editingEvent.homeTeam;
         data.awayTeam = editingEvent.awayTeam;
     }
+    let body = data;
+    const file = coverInput.files[0];
+    if (file || removeCover) {
+        body = new FormData();
+        body.append('event', new Blob([JSON.stringify(data)], {type:'application/json'}));
+        if (file) body.append('cover', file);
+        if (removeCover) body.append('removeCover', 'true');
+    }
     await save(eventForm, find('#event-message'), editingEvent ? '/api/events/' + editingEvent.id : '/api/events',
-        editingEvent ? 'PUT' : 'POST', data, async () => {
+        editingEvent ? 'PUT' : 'POST', body, async () => {
             eventDialog.close();
             message(adminMessage, 'Đã lưu sự kiện.');
             await refresh();
         });
+});
+
+function clearPreviewUrl() {
+    if (coverPreviewUrl) {
+        URL.revokeObjectURL(coverPreviewUrl);
+        coverPreviewUrl = null;
+    }
+}
+
+function renderCoverPreview() {
+    clearPreviewUrl();
+    const file = coverInput.files[0];
+    const savedCover = editingEvent?.coverUrl;
+    if (file) coverPreviewUrl = URL.createObjectURL(file);
+    const url = coverPreviewUrl || (!removeCover ? savedCover : null);
+    coverImage.hidden = !url;
+    coverEmpty.hidden = Boolean(url);
+    coverEmpty.textContent = removeCover ? 'Ảnh sẽ được gỡ khi lưu' : 'Chưa có ảnh bìa';
+    if (url) coverImage.src = url;
+    else coverImage.removeAttribute('src');
+    clearCover.hidden = !file && !savedCover;
+    clearCover.textContent = file ? 'Bỏ ảnh vừa chọn' : removeCover ? 'Giữ ảnh đã lưu' : 'Gỡ ảnh bìa';
+}
+
+coverInput.addEventListener('change', () => {
+    const file = coverInput.files[0];
+    message(coverMessage);
+    if (file && file.size > 4 * 1024 * 1024) {
+        coverInput.value = '';
+        coverInput.setCustomValidity('Ảnh bìa tối đa 4 MB.');
+        message(coverMessage, 'Ảnh bìa tối đa 4 MB. Hãy chọn ảnh nhỏ hơn.', true);
+    } else {
+        coverInput.setCustomValidity('');
+        if (file) removeCover = false;
+    }
+    renderCoverPreview();
+});
+
+coverImage.addEventListener('error', () => {
+    coverImage.hidden = true;
+    coverEmpty.hidden = false;
+    coverEmpty.textContent = 'Không xem trước được ảnh';
+    if (coverInput.files[0]) {
+        coverInput.setCustomValidity('Hãy chọn ảnh JPG hoặc PNG hợp lệ.');
+        message(coverMessage, 'Hãy chọn ảnh JPG hoặc PNG hợp lệ.', true);
+    }
+});
+
+clearCover.addEventListener('click', () => {
+    if (coverInput.files[0]) coverInput.value = '';
+    else removeCover = !removeCover;
+    coverInput.setCustomValidity('');
+    message(coverMessage);
+    renderCoverPreview();
+});
+
+eventDialog.addEventListener('close', () => {
+    coverInput.setCustomValidity('');
+    clearPreviewUrl();
 });
 
 function editCategory(category) {
@@ -195,7 +273,11 @@ find('#add-event').addEventListener('click', () => editEvent(null));
 find('#add-category').addEventListener('click', () => editCategory(null));
 find('#new-ticket').addEventListener('click', () => editTicket(null));
 find('#reload').addEventListener('click', refresh);
-startAccount('ADMIN', async account => {
-    find('#workspace').hidden = !account;
-    if (account) await refresh();
-}).catch(error => message(find('#auth-message'), error.message, true));
+api('/api/auth/me').then(session => {
+    if (session.account?.role !== 'ADMIN') {
+        location.replace(session.account ? '/events' : '/login');
+        return;
+    }
+    showAccountMenu(session.account, '/admin');
+    return refresh();
+}).catch(error => message(adminMessage, error.message, true));

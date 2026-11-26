@@ -13,6 +13,7 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientException;
+import org.springframework.web.client.RestClientResponseException;
 
 @Component
 public class LlmClient {
@@ -22,8 +23,8 @@ public class LlmClient {
     private final ObjectMapper json;
 
     public LlmClient(@Value("${assistant.api-key:}") String key,
-                     @Value("${assistant.base-url:https://api.openai.com/v1}") String baseUrl,
-                     @Value("${assistant.model:gpt-4.1-mini}") String model,
+                     @Value("${assistant.base-url:https://api.groq.com/openai/v1}") String baseUrl,
+                     @Value("${assistant.model:qwen/qwen3.8-27b}") String model,
                      ObjectMapper json) {
         var factory = new SimpleClientHttpRequestFactory();
         factory.setConnectTimeout(Duration.ofSeconds(5));
@@ -36,10 +37,10 @@ public class LlmClient {
 
     public JsonNode complete(String instructions, String input) {
         if (key.isBlank()) {
-            throw new BookingException(HttpStatus.SERVICE_UNAVAILABLE, "Set AI_API_KEY to enable the AI assistant");
+            throw new BookingException(HttpStatus.SERVICE_UNAVAILABLE, "Chưa cấu hình khóa API cho trợ lý.");
         }
         try {
-            var body = Map.of("model", model, "max_completion_tokens", 1200,
+            var body = Map.of("model", model, "max_completion_tokens", 1200, "reasoning_effort", "none",
                 "response_format", Map.of("type", "json_object"),
                 "messages", List.of(Map.of("role", "system", "content", instructions),
                     Map.of("role", "user", "content", input)));
@@ -62,6 +63,14 @@ public class LlmClient {
                 throw unavailable();
             }
             return result;
+        } catch (RestClientResponseException ex) {
+            if (ex.getStatusCode().value() == 429) {
+                throw new BookingException(HttpStatus.TOO_MANY_REQUESTS, "Đã chạm hạn mức của trợ lý AI. Hãy thử lại sau.");
+            }
+            if (ex.getStatusCode().value() == 401 || ex.getStatusCode().value() == 403) {
+                throw new BookingException(HttpStatus.BAD_GATEWAY, "Không xác thực được dịch vụ AI. Hãy kiểm tra khóa API.");
+            }
+            throw unavailable();
         } catch (RestClientException | java.io.IOException ex) {
             throw unavailable();
         }

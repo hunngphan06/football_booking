@@ -20,6 +20,7 @@ public class Event {
     private String title;
     private String category;
     private boolean saleOpen;
+    private String coverVersion;
     private Instant startTime;
     private String description;
     private String organizer;
@@ -62,5 +63,13 @@ public class Event {
     public boolean isSaleOpen() { return saleOpen; }
     public String getDescription() { return description; }
     public String getOrganizer() { return organizer; }
+    public String getCoverUrl() {
+        return coverVersion == null ? null : "/api/events/" + id + "/cover?v=" + coverVersion;
+    }
+
+    public void changeCover(String version) {
+        this.coverVersion = version;
+    }
+
     public List<TicketType> getTicketTypes() { return List.copyOf(ticketTypes); }
 }

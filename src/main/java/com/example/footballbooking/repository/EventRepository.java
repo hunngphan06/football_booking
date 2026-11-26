@@ -34,8 +34,10 @@ public interface EventRepository extends JpaRepository<Event, Long>,
     @Query("select e from Event e where e.id = :id")
     Optional<Event> findForUpdate(Long id);
 
+    record PriceRange(BigDecimal min, boolean minExclusive, BigDecimal max, boolean maxExclusive) {}
+
     default Page<Event> search(String keyword, String category, String venue, Instant from, Instant to,
-                                       BigDecimal maxPrice, Pageable pageable) {
+                               PriceRange priceRange, Pageable pageable) {
         return findAll((root, query, cb) -> {
             List<Predicate> filters = new ArrayList<>();
             if (category != null) {
@@ -57,13 +59,22 @@ public interface EventRepository extends JpaRepository<Event, Long>,
             if (to != null) {
                 filters.add(cb.lessThan(root.get("startTime"), to));
             }
-            if (maxPrice != null) {
+            if (priceRange != null && (priceRange.min() != null || priceRange.max() != null)) {
                 var tickets = query.subquery(Long.class);
                 var ticket = tickets.from(TicketType.class);
-                tickets.select(ticket.get("id")).where(
-                    cb.equal(ticket.get("match"), root),
-                    cb.le(ticket.get("price"), maxPrice),
-                    cb.greaterThan(cb.diff(ticket.get("totalQuantity"), ticket.get("allocatedQuantity")), 0));
+                var price = ticket.<BigDecimal>get("price");
+                List<Predicate> ticketFilters = new ArrayList<>();
+                ticketFilters.add(cb.equal(ticket.get("match"), root));
+                ticketFilters.add(cb.greaterThan(cb.diff(ticket.get("totalQuantity"), ticket.get("allocatedQuantity")), 0));
+                if (priceRange.min() != null) {
+                    ticketFilters.add(priceRange.minExclusive()
+                        ? cb.gt(price, priceRange.min()) : cb.ge(price, priceRange.min()));
+                }
+                if (priceRange.max() != null) {
+                    ticketFilters.add(priceRange.maxExclusive()
+                        ? cb.lt(price, priceRange.max()) : cb.le(price, priceRange.max()));
+                }
+                tickets.select(ticket.get("id")).where(ticketFilters.toArray(Predicate[]::new));
                 filters.add(cb.exists(tickets));
             }
             return cb.and(filters.toArray(Predicate[]::new));

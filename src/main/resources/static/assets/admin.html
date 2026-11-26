@@ -4,26 +4,14 @@
     <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
     <title>Quản trị · Event Booking</title>
     <link rel="stylesheet" href="/assets/booking.css">
+    <link rel="stylesheet" href="/assets/navigation.css">
     <script type="module" src="/assets/admin.js"></script>
 </head>
 <body>
-<header><nav class="topbar"><a class="brand" href="/admin">Event Booking · Quản trị</a><a href="/events">Trang đặt vé</a></nav></header>
+<header id="site-header" class="site-header"></header>
 <main>
     <div class="hero"><h1>Quản trị sự kiện</h1><p>Quản lý lịch sự kiện, danh mục và số lượng vé đang mở bán.</p></div>
-    <section class="panel" aria-label="Tài khoản quản trị">
-        <form id="login" hidden>
-            <h2>Đăng nhập quản trị</h2>
-            <div class="field-grid">
-                <label>Email<input type="email" name="email" autocomplete="username" required></label>
-                <label>Mật khẩu<input type="password" name="password" autocomplete="current-password" required></label>
-            </div>
-            <button class="primary" type="submit">Đăng nhập</button>
-        </form>
-        <div id="account-bar" hidden><strong id="account-name"></strong><button class="secondary" type="button" id="logout">Đăng xuất</button></div>
-        <div class="row"><button class="secondary" type="button" id="demo-login" hidden>Dùng tài khoản admin demo</button></div>
-        <p class="notice" role="status" id="auth-message"></p>
-    </section>
-    <section id="workspace" hidden>
+    <section id="workspace">
         <div class="toolbar"><h2>Sự kiện</h2><div class="row"><button class="secondary" id="reload" type="button">Tải lại</button><button class="primary" id="add-event" type="button">Thêm sự kiện</button></div></div>
         <p id="admin-message" class="notice" role="status"></p>
         <div class="table-scroll panel">
@@ -46,6 +34,17 @@
                 <label>Bán vé<select name="saleOpen"><option value="true">Đang mở</option><option value="false">Đã đóng</option></select></label>
             </div>
             <label>Mô tả<textarea name="description" rows="2"></textarea></label>
+            <div class="cover-field">
+                <label for="cover-input">Ảnh bìa sự kiện</label>
+                <div class="cover-preview" id="cover-preview">
+                    <img id="cover-preview-image" alt="Ảnh bìa xem trước" hidden>
+                    <span id="cover-empty">Chưa có ảnh bìa</span>
+                </div>
+                <input type="file" id="cover-input" accept="image/jpeg,image/png,.jpg,.jpeg,.png" aria-describedby="cover-help cover-message">
+                <p class="muted" id="cover-help">JPG hoặc PNG, tối đa 4 MB. Nên chọn ảnh ngang.</p>
+                <button class="secondary" id="clear-cover" type="button" hidden>Gỡ ảnh</button>
+                <p class="notice" id="cover-message" role="status"></p>
+            </div>
             <fieldset id="initial-ticket">
                 <legend>Loại vé đầu tiên</legend>
                 <label>Tên loại vé<input name="ticketName" value="Vé thường" required maxlength="255"></label>

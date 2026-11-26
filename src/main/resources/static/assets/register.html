@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Đăng ký · Event Booking</title>
+    <link rel="stylesheet" href="/assets/booking.css">
+    <link rel="stylesheet" href="/assets/login.css">
+    <script type="module" src="/assets/auth.js"></script>
+</head>
+<body class="login-page">
+<main class="login-layout">
+    <div class="login-background" id="login-background" aria-hidden="true"></div>
+    <section class="login-card" aria-labelledby="auth-heading">
+        <h1 id="auth-heading">Đăng ký</h1>
+        <form id="registration" method="post" action="/api/auth/register">
+            <label>Họ tên<input name="name" autocomplete="name" required maxlength="255"></label>
+            <label>Email<input type="email" name="email" autocomplete="email" required maxlength="255"></label>
+            <div>
+                <label>Mật khẩu<input type="password" name="password" autocomplete="new-password" required minlength="8" maxlength="72" aria-describedby="password-help"></label>
+                <small id="password-help">Tối thiểu 8 ký tự.</small>
+            </div>
+            <button class="primary" type="submit">Đăng ký</button>
+        </form>
+        <p class="notice" role="status" id="auth-message"></p>
+        <p class="login-switch">Đã có tài khoản? <a id="login-link" href="/login">Đăng nhập</a></p>
+    </section>
+</main>
+</body>
+</html>

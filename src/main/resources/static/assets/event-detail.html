@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="vi">
+<head>
+    <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>Chi tiết sự kiện · Event Booking</title>
+    <link rel="stylesheet" href="/assets/booking.css">
+    <link rel="stylesheet" href="/assets/navigation.css">
+    <script type="module" src="/assets/event-detail.js"></script>
+</head>
+<body>
+<header id="site-header" class="site-header"></header>
+<main>
+    <a class="back-link" href="/events">Tất cả sự kiện</a>
+    <p id="detail-message" class="notice" role="status"></p>
+    <article id="event-detail" class="detail-layout" hidden>
+        <div>
+            <div id="detail-cover"></div>
+            <h1 id="detail-title"></h1>
+            <p id="detail-when" class="muted"></p>
+            <p id="detail-description"></p>
+            <details class="panel"><summary>Hỏi về sự kiện</summary>
+                <form id="assistant-ask">
+                    <label>Câu hỏi<input name="question" required maxlength="2000" placeholder="Có chỗ gửi xe không?"></label>
+                    <button class="secondary" type="submit">Gửi câu hỏi</button>
+                </form>
+                <p id="ai-answer" class="notice" role="status"></p>
+            </details>
+        </div>
+        <section class="panel ticket-panel" aria-labelledby="ticket-heading">
+            <h2 id="ticket-heading">Chọn vé</h2>
+            <form id="reserve" hidden>
+                <label>Loại vé<select name="ticket" required></select></label>
+                <label>Số vé<input name="quantity" type="number" min="1" value="1" required></label>
+                <p id="total" aria-live="polite"></p>
+                <button class="primary" type="submit">Đặt vé</button>
+            </form>
+            <p class="notice" id="booking-message" role="status"></p>
+        </section>
+    </article>
+</main>
+</body>
+</html>

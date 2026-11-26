@@ -34,13 +34,16 @@ public class BookingController {
 
     private final PaymentService payments;
     private final boolean demo;
+    private final boolean paymentScenariosEnabled;
 
     public BookingController(BookingService service, ConfirmationService confirmations, PaymentService payments,
-                             @Value("${booking.demo.enabled:false}") boolean demo) {
+                             @Value("${booking.demo.enabled:false}") boolean demo,
+                             @Value("${booking.demo.payment-scenarios-enabled:false}") boolean paymentScenariosEnabled) {
         this.service = service;
         this.confirmations = confirmations;
         this.payments = payments;
         this.demo = demo;
+        this.paymentScenariosEnabled = paymentScenariosEnabled;
     }
 
     @GetMapping("/me/bookings")
@@ -76,8 +79,8 @@ public class BookingController {
                                        @AuthenticationPrincipal AccountPrincipal account) {
         ownBooking(id, account);
         Scenario scenario = request == null || request.scenario() == null ? Scenario.SUCCESS : request.scenario();
-        if (scenario != Scenario.SUCCESS) {
-            requireDemo();
+        if (scenario != Scenario.SUCCESS && (!demo || !paymentScenariosEnabled)) {
+            throw new BookingException(HttpStatus.FORBIDDEN, "Kịch bản thanh toán lỗi chỉ dùng khi bật kiểm thử.");
         }
         return paymentResponse(payments.pay(id, scenario));
     }

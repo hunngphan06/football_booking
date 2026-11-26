@@ -18,6 +18,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @SpringBootTest(properties = {
     "spring.datasource.url=jdbc:h2:mem:account_flow;MODE=PostgreSQL;DB_CLOSE_DELAY=-1",
+    "booking.demo.enabled=true",
     "booking.admin.email=admin@account.example",
     "booking.admin.password=TestPassword2026!"
 })
@@ -32,12 +33,19 @@ class AccountSecurityTests {
     void adminManagesEventsAndOnlyTheCustomerCanActOnTheirBooking() throws Exception {
         mvc.perform(get("/demo/index.html")).andExpect(redirectedUrl("/events"));
         mvc.perform(get("/demo")).andExpect(redirectedUrl("/events"));
-        mvc.perform(get("/admin")).andExpect(status().isOk()).andExpect(forwardedUrl("/assets/admin.html"));
-        mvc.perform(get("/events")).andExpect(status().isOk()).andExpect(forwardedUrl("/assets/events.html"));
+        mvc.perform(get("/admin")).andExpect(redirectedUrl("/login"));
+        mvc.perform(get("/my-bookings")).andExpect(redirectedUrl("/login?next=/my-bookings"));
+        mvc.perform(get("/events")).andExpect(forwardedUrl("/assets/events.html"));
+        mvc.perform(get("/events/42")).andExpect(forwardedUrl("/assets/event-detail.html"));
+        mvc.perform(get("/login")).andExpect(forwardedUrl("/assets/login.html"));
+        mvc.perform(get("/register")).andExpect(forwardedUrl("/assets/register.html"));
+        mvc.perform(get("/assets/admin.html")).andExpect(status().isUnauthorized());
         mvc.perform(get("/api/me/bookings")).andExpect(status().isUnauthorized());
         mvc.perform(post("/api/events").with(csrf())).andExpect(status().isUnauthorized());
 
         MockHttpSession admin = signIn("admin@account.example", PASSWORD);
+        mvc.perform(get("/admin").session(admin)).andExpect(forwardedUrl("/assets/admin.html"));
+        mvc.perform(get("/my-bookings").session(admin)).andExpect(redirectedUrl("/login?next=/my-bookings"));
         mvc.perform(get("/api/auth/me").session(admin)).andExpect(jsonPath("$.account.role").value("ADMIN"));
         mvc.perform(post("/api/events").session(admin)).andExpect(status().isForbidden());
         var created = mvc.perform(post("/api/events").session(admin).with(csrf()).contentType(MediaType.APPLICATION_JSON)
@@ -60,8 +68,11 @@ class AccountSecurityTests {
 
         MockHttpSession owner = signIn("OWNER@account.example", PASSWORD);
         MockHttpSession other = signIn("other@account.example", PASSWORD);
+        mvc.perform(get("/my-bookings").session(owner)).andExpect(forwardedUrl("/assets/my-bookings.html"));
+        mvc.perform(get("/admin").session(owner)).andExpect(redirectedUrl("/events"));
         mvc.perform(get("/api/auth/me").session(owner)).andExpect(jsonPath("$.account.role").value("USER"))
-            .andExpect(jsonPath("$.account.customerId").value(ownerId));
+            .andExpect(jsonPath("$.account.customerId").value(ownerId))
+            .andExpect(jsonPath("$.demo").value(true));
         mvc.perform(delete("/api/events/{id}", eventId).session(owner).with(csrf())).andExpect(status().isForbidden());
 
         var item = Map.of("ticketTypeId", ticketId, "quantity", 2);

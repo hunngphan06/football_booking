@@ -30,9 +30,11 @@ public class SecurityConfig {
             .requestCache(AbstractHttpConfigurer::disable)
             .authorizeHttpRequests(auth -> auth
                 .dispatcherTypeMatchers(DispatcherType.FORWARD, DispatcherType.ERROR).permitAll()
-                .requestMatchers(HttpMethod.GET, "/", "/admin", "/admin/", "/events", "/events/", "/welcome", "/football",
+                .requestMatchers(HttpMethod.GET, "/assets/*.html").denyAll()
+                .requestMatchers(HttpMethod.GET, "/", "/admin", "/admin/", "/events", "/events/", "/events/*",
+                    "/events/*/", "/login", "/register", "/my-bookings", "/welcome", "/football",
                     "/assets/**", "/demo", "/demo/", "/demo/index.html", "/api/auth/csrf", "/api/auth/me",
-                    "/api/events", "/api/events/*", "/api/event-categories", "/swagger-ui.html",
+                    "/api/events", "/api/events/*", "/api/events/*/cover", "/api/event-categories", "/swagger-ui.html",
                     "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login", "/api/auth/register", "/api/customers",
                     "/api/assistant/search", "/api/events/*/ask").permitAll()
@@ -40,7 +42,7 @@ public class SecurityConfig {
                     .hasRole("ADMIN")
                 .requestMatchers("/api/bookings", "/api/bookings/**", "/api/me/bookings", "/api/customers/*/bookings").hasRole("USER")
                 .anyRequest().denyAll())
-            .formLogin(login -> login.loginPage("/events").loginProcessingUrl("/api/auth/login")
+            .formLogin(login -> login.loginPage("/login").loginProcessingUrl("/api/auth/login")
                 .usernameParameter("email")
                 .successHandler((request, response, authentication) -> response.setStatus(204))
                 .failureHandler((request, response, exception) -> error(response, 401, "Email hoặc mật khẩu không đúng.")))

@@ -3,9 +3,13 @@ package com.example.footballbooking.controller;
 import com.example.footballbooking.dto.EventRequest;
 import com.example.footballbooking.dto.TicketTypeRequest;
 import com.example.footballbooking.model.Event;
+import com.example.footballbooking.model.EventCover;
+import com.example.footballbooking.exception.InvalidRequestException;
 import com.example.footballbooking.model.TicketType;
 import com.example.footballbooking.service.EventService;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.CacheControl;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -14,8 +18,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RequestPart;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.bind.annotation.RestController;
 import java.net.URI;
+import java.io.IOException;
 import java.time.Instant;
 import java.util.List;
 
@@ -52,15 +59,49 @@ public class EventController {
         return service.getEvent(id);
     }
 
-    @PostMapping("/api/events")
-    public ResponseEntity<Event> createEvent(@RequestBody EventRequest request) {
-        Event match = service.createEvent(request);
-        return ResponseEntity.created(URI.create("/api/events/" + match.getId())).body(match);
+    @GetMapping("/api/events/{id}/cover")
+    public ResponseEntity<byte[]> cover(@PathVariable long id) {
+        EventCover image = service.getCover(id);
+        return ResponseEntity.ok().contentType(MediaType.parseMediaType(image.contentType()))
+            .cacheControl(CacheControl.noStore()).body(image.data());
     }
 
-    @PutMapping("/api/events/{id}")
-    public Event updateEvent(@PathVariable("id") Long id, @RequestBody EventRequest request) {
-        return service.updateEvent(id, request);
+    @PostMapping(value = "/api/events", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public ResponseEntity<Event> createEvent(@RequestBody EventRequest request) {
+        return created(service.createEvent(request, null));
+    }
+
+    @PostMapping(value = "/api/events", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Event> createEventWithCover(@RequestPart("event") EventRequest request,
+                                                      @RequestPart("cover") MultipartFile upload) {
+        return created(service.createEvent(request, readCover(upload)));
+    }
+
+    @PutMapping(value = "/api/events/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
+    public Event updateEvent(@PathVariable Long id, @RequestBody EventRequest request) {
+        return service.updateEvent(id, request, null, false);
+    }
+
+    @PutMapping(value = "/api/events/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public Event updateEventWithCover(@PathVariable Long id, @RequestPart("event") EventRequest request,
+                                     @RequestPart(value = "cover", required = false) MultipartFile upload,
+                                     @RequestParam(defaultValue = "false") boolean removeCover) {
+        return service.updateEvent(id, request, upload == null ? null : readCover(upload), removeCover);
+    }
+
+    private ResponseEntity<Event> created(Event event) {
+        return ResponseEntity.created(URI.create("/api/events/" + event.getId())).body(event);
+    }
+
+    private EventCover readCover(MultipartFile upload) {
+        if (upload.getSize() > EventCover.MAX_BYTES) {
+            throw new InvalidRequestException("Ảnh bìa tối đa 4 MB.");
+        }
+        try {
+            return EventCover.decode(upload.getBytes());
+        } catch (IOException ex) {
+            throw new InvalidRequestException("Không đọc được tệp ảnh bìa.");
+        }
     }
 
     @DeleteMapping("/api/events/{id}")

@@ -6,6 +6,8 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
+import org.springframework.web.multipart.support.MissingServletRequestPartException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -67,7 +69,12 @@ public class GlobalExceptionHandler {
         return error(HttpStatus.BAD_REQUEST, exception.getMessage(), request);
     }
 
-    @ExceptionHandler(HttpMessageNotReadableException.class)
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ApiError> handleOversizedUpload(HttpServletRequest request) {
+        return error(HttpStatus.PAYLOAD_TOO_LARGE, "Ảnh bìa tối đa 4 MB.", request);
+    }
+
+    @ExceptionHandler({HttpMessageNotReadableException.class, MissingServletRequestPartException.class})
     public ResponseEntity<ApiError> handleInvalidJson(HttpServletRequest request) {
         return error(HttpStatus.BAD_REQUEST, "Invalid request JSON or field format", request);
     }

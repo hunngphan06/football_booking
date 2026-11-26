@@ -7,11 +7,14 @@ import com.example.footballbooking.exception.InvalidRequestException;
 import com.example.footballbooking.exception.BookingException;
 import org.springframework.http.HttpStatus;
 import com.example.footballbooking.model.Event;
+import com.example.footballbooking.model.EventCover;
 import com.example.footballbooking.model.TicketType;
 import com.example.footballbooking.repository.EventRepository;
+import com.example.footballbooking.repository.EventCoverRepository;
 import com.example.footballbooking.repository.BookingRepository;
 import com.example.footballbooking.repository.EventCategoryRepository;
 import java.util.Locale;
+import java.util.UUID;
 import com.example.footballbooking.repository.TicketTypeRepository;
 import java.math.RoundingMode;
 import java.time.Instant;
@@ -29,13 +32,15 @@ public class EventServiceImpl implements EventService {
 
     private final EventCategoryRepository categories;
     private final BookingRepository bookings;
+    private final EventCoverRepository covers;
 
     public EventServiceImpl(EventRepository repository, TicketTypeRepository ticketTypes,
-                            EventCategoryRepository categories, BookingRepository bookings) {
+                            EventCategoryRepository categories, BookingRepository bookings, EventCoverRepository covers) {
         this.repository = repository;
         this.ticketTypes = ticketTypes;
         this.categories = categories;
         this.bookings = bookings;
+        this.covers = covers;
     }
 
     @Override
@@ -66,7 +71,7 @@ public class EventServiceImpl implements EventService {
 
     @Override
     @Transactional
-    public Event createEvent(EventRequest request) {
+    public Event createEvent(EventRequest request, EventCover cover) {
         Event match = new Event();
         applyDetails(match, request);
         if (request.ticketTypes() != null) {
@@ -74,19 +79,42 @@ public class EventServiceImpl implements EventService {
                 addValidatedTicket(match, ticket);
             }
         }
-        return repository.save(match);
+        Event event = repository.save(match);
+        if (cover != null) {
+            saveCover(event, cover);
+        }
+        return event;
     }
 
     @Override
     @Transactional
-    public Event updateEvent(Long id, EventRequest request) {
+    public Event updateEvent(Long id, EventRequest request, EventCover cover, boolean removeCover) {
         if (request.ticketTypes() != null) {
             throw new InvalidRequestException("Use the ticket-types endpoint to add ticket types");
         }
+        if (cover != null && removeCover) {
+            throw new InvalidRequestException("Chọn thay ảnh hoặc gỡ ảnh.");
+        }
         Event match = lockEvent(id);
         applyDetails(match, request);
+        if (cover != null) {
+            saveCover(match, cover);
+        } else if (removeCover) {
+            covers.delete(id);
+            match.changeCover(null);
+        }
         match.getTicketTypes();
         return match;
+    }
+
+    @Override
+    public EventCover getCover(long id) {
+        return covers.find(id).orElseThrow(() -> new BookingException(HttpStatus.NOT_FOUND, "Ảnh bìa không tồn tại."));
+    }
+
+    private void saveCover(Event event, EventCover cover) {
+        covers.save(event.getId(), cover);
+        event.changeCover(UUID.randomUUID().toString());
     }
 
     @Override

@@ -36,10 +36,7 @@ p { line-height: 1.5; }
 .toolbar { justify-content: space-between; margin-block: 1.35rem .8rem; }
 .panel, .card { border: 1px solid var(--line); border-radius: 14px; background: white; padding: 18px; }
 .panel { margin-block: 14px; }
-.auth-grid { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 16px; }
-.auth-grid form { margin: 0; }
-.auth-grid > form:only-of-type { max-width: 420px; }
-#account-bar, .filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; justify-content: space-between; }
+.filters { display: flex; flex-wrap: wrap; align-items: end; gap: 12px; justify-content: space-between; }
 .filters label { flex: 1 1 180px; }
 label { display: grid; gap: 5px; margin-block: .55rem; font-size: .9rem; font-weight: 650; }
 input, select, textarea { min-width: 0; border: 1px solid #a6b8ca; border-radius: 8px; background: #fff; color: var(--ink); padding: .6rem .7rem; }
@@ -58,7 +55,7 @@ button:disabled { opacity: .55; cursor: default; }
 .card { display: flex; flex-direction: column; align-items: start; gap: 8px; }
 .card h3, .card p { margin: 0; }
 .card h3 { overflow-wrap: anywhere; }
-.card .row { margin-top: auto; padding-top: 6px; }
+.card .primary { margin-top: auto; }
 .chip { display: inline-flex; background: var(--pale); color: #075344; border-radius: 20px; padding: .24rem .6rem; font-size: .83rem; font-weight: 700; }
 .order { border-top: 1px solid var(--line); padding: 14px 0 4px; }
 .order:first-child { border: 0; }
@@ -76,4 +73,51 @@ dialog p { margin-block: .6rem; }
 .ticket-row { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--line); padding: 10px 0; gap: 8px; }
 form .row { margin-top: 12px; }
 @media (max-width: 840px) { .cards { grid-template-columns: repeat(2,minmax(0,1fr)); } .split { grid-template-columns: 1fr; } }
-@media (max-width: 540px) { .cards,.auth-grid,.field-grid { grid-template-columns: 1fr; } main,.topbar { padding-inline: 13px; } th,td { padding-inline: 5px; } }
+@media (max-width: 540px) { .cards,.field-grid { grid-template-columns: 1fr; } main,.topbar { padding-inline: 13px; } th,td { padding-inline: 5px; } }
+
+.cover-field { margin: 1rem 0; }
+.cover-field > input { width: 100%; margin-top: .5rem; }
+.cover-preview, .event-cover {
+    aspect-ratio: 16 / 9;
+    width: 100%;
+    overflow: hidden;
+    border-radius: 8px;
+}
+.cover-preview {
+    display: grid;
+    place-items: center;
+    max-width: 340px;
+    color: var(--muted);
+    background: #eef3f8;
+}
+.cover-preview img, .event-cover img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+.event-cover {
+    background: radial-gradient(ellipse at 80% 10%, #438c87, transparent 65%), #182c43;
+}
+.event-cover[data-category="SPORTS"] {
+    background: radial-gradient(ellipse at 76% 24%, #448b73, transparent 65%), #133c3c;
+}
+.event-cover[data-category="CINEMA"] {
+    background: radial-gradient(ellipse at 74% 10%, #5a75a8, transparent 65%), #1f2c48;
+}
+.event-cover[data-category="MUSIC"] {
+    background: radial-gradient(ellipse at 76% 15%, #8765a0, transparent 65%), #392c54;
+}
+#detail-cover { margin-bottom: 1rem; }
+
+.order-page h1 { margin: 0 0 1rem; }
+.back-link { color: var(--accent); }
+.detail-layout { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(0, 1fr); gap: 22px; margin-top: 16px; align-items: start; }
+.detail-layout h1 { margin: 0 0 .5rem; }
+.ticket-panel { margin: 0; }
+.ticket-panel .primary { width: 100%; }
+.order-page { max-width: 880px; }
+.order-page .toolbar { margin-top: 0; }
+.order-page .toolbar h1 { margin: 0; }
+@media (max-width: 720px) { .detail-layout { grid-template-columns: 1fr; } }
+@media (max-width: 540px) { .topbar { align-items: flex-start; flex-direction: column; gap: .6rem; } }

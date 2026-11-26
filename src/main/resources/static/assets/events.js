@@ -1,212 +1,181 @@
-import {api, find, money, dateTime, element, option, button, message, startAccount} from './shared.js';
+import {api, find, money, dateTime, element, button, message, eventCover, catalogEvents} from './shared.js';
+import {showAccountMenu} from './navigation.js';
 
-const dialog = find('#details');
-const reserve = find('#reserve');
-const categoriesFilter = find('#category-filter');
+const categoryButtons = find('#category-filter');
 const search = find('#search');
-const orderMessage = find('#order-message');
-const scenario = find('#scenario');
+const cards = find('#event-cards');
+const notice = find('#event-message');
+const assistantNotice = find('#assistant-message');
+const resetFilters = find('#reset-filters');
+const reload = find('#reload');
 let events = [];
 let categories = [];
+let selectedCategory = '';
 let assistantResults = null;
-let account = null;
-let demo = false;
-let selectedEvent = null;
+let assistantCriteria = null;
+
+function categoryName(code) {
+    return categories.find(category => category.code === code)?.name || code;
+}
+
+function availableTickets(event) {
+    return event.ticketTypes.filter(ticket => ticket.availableQuantity > 0);
+}
+
+function matchesAssistantPrice(ticket) {
+    const {minPrice, minPriceExclusive, maxPrice, maxPriceExclusive} = assistantCriteria;
+    return (minPrice == null || (minPriceExclusive ? ticket.price > minPrice : ticket.price >= minPrice))
+        && (maxPrice == null || (maxPriceExclusive ? ticket.price < maxPrice : ticket.price <= maxPrice));
+}
 
 async function refreshEvents() {
+    reload.disabled = true;
+    cards.setAttribute('aria-busy', 'true');
     try {
-        [events, categories] = await Promise.all([api('/api/events'), api('/api/event-categories')]);
-        const selected = categoriesFilter.value;
-        const availableCodes = new Set(events.filter(event => event.saleOpen).map(event => event.category));
-        categoriesFilter.replaceChildren(option('Tất cả', ''), ...categories
-            .filter(category => availableCodes.has(category.code)).map(category => option(category.name, category.code)));
-        categoriesFilter.value = [...categoriesFilter.options].some(item => item.value === selected) ? selected : '';
+        const [eventList, categoryList] = await Promise.all([api('/api/events'), api('/api/event-categories')]);
+        const catalog = catalogEvents(eventList);
+        events = catalog.events;
+        categories = categoryList;
+        renderFeatured(catalog.featured);
+        renderCategories();
         renderEvents();
+        reload.hidden = true;
     } catch (error) {
-        message(find('#event-message'), error.message, true);
+        cards.replaceChildren();
+        find('#event-count').textContent = '';
+        message(notice, 'Không tải được sự kiện. ' + error.message, true);
+        reload.hidden = false;
+    } finally {
+        cards.setAttribute('aria-busy', 'false');
+        reload.disabled = false;
     }
+}
+
+function renderFeatured(event) {
+    if (!event) return;
+    find('#feature-media').replaceChildren(eventCover(event, {eager:true}));
+    find('#feature-label').hidden = false;
+    find('#feature-title').textContent = event.title;
+    const meta = find('#feature-meta');
+    meta.textContent = dateTime.format(new Date(event.startTime)) + ' · ' + event.venue;
+    meta.hidden = false;
+    const link = find('#feature-link');
+    link.href = '/events/' + event.id;
+    link.textContent = availableTickets(event).length ? 'Xem vé' : 'Xem chi tiết';
+}
+
+function renderCategories() {
+    const codes = new Set(events.map(event => event.category));
+    if (!codes.has(selectedCategory)) selectedCategory = '';
+    const choices = [{code:'', name:'Tất cả'}, ...categories.filter(category => codes.has(category.code))];
+    categoryButtons.replaceChildren(...choices.map(category => {
+        const control = button(category.name, () => {
+            selectedCategory = category.code;
+            renderEvents();
+        }, 'category-button');
+        control.dataset.category = category.code;
+        return control;
+    }));
+}
+
+function searchable(value) {
+    return value.trim().toLocaleLowerCase('vi').normalize('NFD').replace(/\p{Mark}/gu, '').replace(/đ/g, 'd');
 }
 
 function renderEvents() {
-    const term = search.value.trim().toLocaleLowerCase('vi');
-    const visible = events.filter(event => event.saleOpen && (!assistantResults || assistantResults.has(event.id))
-        && (!categoriesFilter.value || event.category === categoriesFilter.value)
-        && (event.title + ' ' + event.venue).toLocaleLowerCase('vi').includes(term));
-    find('#event-cards').replaceChildren(...visible.map(eventCard));
-    message(find('#event-message'), visible.length ? '' : 'Không tìm thấy sự kiện phù hợp.');
+    const term = searchable(search.value);
+    const visible = events.filter(event => (!assistantResults || assistantResults.has(event.id))
+        && (!selectedCategory || event.category === selectedCategory)
+        && searchable(event.title + ' ' + event.venue).includes(term));
+    for (const control of categoryButtons.querySelectorAll('button')) {
+        control.setAttribute('aria-pressed', String(control.dataset.category === selectedCategory));
+    }
+    const filtering = Boolean(term || selectedCategory || assistantResults);
+    resetFilters.hidden = !filtering;
+    const firstByCategory = new Map();
+    for (const event of visible) {
+        if (!firstByCategory.has(event.category)) firstByCategory.set(event.category, event);
+    }
+    // On the unfiltered homepage, show one of each category before the other dates.
+    const ordered = filtering ? visible : [...firstByCategory.values(),
+        ...visible.filter(event => firstByCategory.get(event.category) !== event)];
+    cards.replaceChildren(...ordered.map(eventCard));
+    find('#event-count').textContent = visible.length ? visible.length + ' sự kiện' : '';
+    message(notice, visible.length ? '' : 'Không tìm thấy sự kiện phù hợp.');
 }
 
 function eventCard(event) {
-    const card = element('article', '', 'card');
-    const category = categories.find(entry => entry.code === event.category)?.name || event.category;
-    const available = event.ticketTypes.filter(ticket => ticket.availableQuantity > 0);
-    const quantity = available.reduce((sum, ticket) => sum + ticket.availableQuantity, 0);
-    const price = available.length ? 'Từ ' + money.format(Math.min(...available.map(ticket => ticket.price))) : 'Hết vé';
-    card.append(element('span', category, 'chip'), element('h3', event.title),
-        element('p', event.venue, 'muted'), element('p', dateTime.format(new Date(event.startTime)), 'muted'),
-        element('strong', price + (quantity ? ' · còn ' + quantity + ' vé' : '')),
-        button('Xem và chọn vé', () => openDetails(event.id), 'primary'));
+    const card = element('article', '', 'card catalog-card');
+    const media = element('div', '', 'catalog-card-media');
+    media.append(eventCover(event), element('span', categoryName(event.category), 'chip'));
+    const body = element('div', '', 'catalog-card-body');
+    const meta = element('div', '', 'card-meta');
+    const time = element('time', dateTime.format(new Date(event.startTime)));
+    time.dateTime = event.startTime;
+    meta.append(time, element('span', event.venue));
+
+    const priceFiltered = assistantCriteria?.minPrice != null || assistantCriteria?.maxPrice != null;
+    const available = availableTickets(event);
+    const tickets = priceFiltered ? available.filter(matchesAssistantPrice) : available;
+    const remaining = tickets.reduce((sum, ticket) => sum + ticket.availableQuantity, 0);
+    const price = element('div', '', 'card-price');
+    price.append(element('strong', remaining ? 'Từ ' + money.format(Math.min(...tickets.map(ticket => ticket.price))) : 'Hết vé'));
+    if (remaining) price.append(element('small', 'Còn ' + remaining + (priceFiltered ? ' vé phù hợp' : ' vé')));
+    const details = element('a', remaining ? 'Xem vé' : 'Xem chi tiết', 'secondary card-link');
+    details.href = '/events/' + event.id;
+    details.setAttribute('aria-label', details.textContent + ' · ' + event.title + ' · ' + time.textContent);
+    const footer = element('div', '', 'row card-footer');
+    footer.append(price, details);
+    body.append(element('h3', event.title), meta, footer);
+    card.append(media, body);
     return card;
 }
 
-async function openDetails(id) {
-    try {
-        selectedEvent = await api('/api/events/' + id);
-        find('#detail-title').textContent = selectedEvent.title;
-        find('#detail-when').textContent = selectedEvent.venue + ' · ' + dateTime.format(new Date(selectedEvent.startTime));
-        find('#detail-description').textContent = selectedEvent.description || '';
-        find('#login-needed').hidden = Boolean(account);
-        const tickets = selectedEvent.ticketTypes.filter(ticket => ticket.availableQuantity > 0);
-        reserve.hidden = !account || !selectedEvent.saleOpen || !tickets.length;
-        reserve.elements.quantity.value = 1;
-        reserve.elements.ticket.replaceChildren(...tickets.map(ticket =>
-            option(ticket.name + ' · ' + money.format(ticket.price) + ' · còn ' + ticket.availableQuantity, ticket.id)));
-        if (!selectedEvent.saleOpen || !tickets.length) {
-            message(find('#booking-message'), selectedEvent.saleOpen ? 'Sự kiện đã hết vé.' : 'Sự kiện đã đóng bán vé.');
-        } else {
-            message(find('#booking-message'));
-        }
-        find('#assistant-ask').reset();
-        message(find('#ai-answer'));
-        quote();
-        dialog.showModal();
-    } catch (error) {
-        message(find('#event-message'), error.message, true);
-    }
+function openAssistant() {
+    find('#catalog-assistant').open = true;
+    find('#assistant-query').focus({preventScroll:true});
 }
 
-function quote() {
-    const ticket = selectedEvent?.ticketTypes.find(item => item.id === Number(reserve.elements.ticket.value));
-    if (!ticket) return;
-    reserve.elements.quantity.max = ticket.availableQuantity;
-    find('#total').textContent = 'Tổng tiền dự kiến ' + money.format(ticket.price * Number(reserve.elements.quantity.value));
+function followSectionLink() {
+    if (location.hash === '#catalog-assistant') openAssistant();
 }
 
-reserve.addEventListener('input', quote);
-reserve.addEventListener('submit', async formEvent => {
-    formEvent.preventDefault();
-    const submit = reserve.querySelector('button');
-    const ticketTypeId = Number(reserve.elements.ticket.value);
-    const quantity = Number(reserve.elements.quantity.value);
+find('#nav-assistant').addEventListener('click', openAssistant);
+window.addEventListener('hashchange', followSectionLink);
+followSectionLink();
+
+find('#assistant-search').addEventListener('submit', async event => {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const submit = find('button[type="submit"]', form);
     submit.disabled = true;
     try {
-        const order = await api('/api/bookings', 'POST', {eventId:selectedEvent.id, items:[{ticketTypeId, quantity}]});
-        dialog.close();
-        await refreshOrders();
-        await refreshEvents();
-        message(orderMessage, 'Đã giữ vé cho đơn #' + order.id + '.');
-        find('#orders-heading').scrollIntoView({block:'nearest'});
+        const result = await api('/api/assistant/search', 'POST', Object.fromEntries(new FormData(form)));
+        assistantResults = new Set(result.content.map(item => item.id));
+        assistantCriteria = result.criteria;
+        search.value = '';
+        selectedCategory = '';
+        find('#catalog-assistant').open = false;
+        renderEvents();
+        message(assistantNotice, 'Đang hiển thị kết quả từ trợ lý.');
     } catch (error) {
-        message(find('#booking-message'), error.message, true);
+        message(assistantNotice, error.message, true);
     } finally {
         submit.disabled = false;
     }
 });
 
-async function refreshOrders() {
-    if (!account) return;
-    try {
-        const orders = await api('/api/me/bookings');
-        find('#order-list').replaceChildren(...(orders.length ? orders.map(orderRow) : [element('p', 'Bạn chưa có đơn đặt vé.', 'muted')]));
-    } catch (error) {
-        message(orderMessage, error.message, true);
-    }
-}
-
-function orderRow(order) {
-    const row = element('article', '', 'order');
-    const title = events.find(event => event.id === order.eventId)?.title || 'Sự kiện #' + order.eventId;
-    const quantity = order.items.reduce((sum, item) => sum + item.quantity, 0);
-    const statuses = {PENDING:'Chờ thanh toán', PAID:'Chờ xác nhận', CONFIRMED:'Đã xác nhận', CANCELLED:'Đã hủy'};
-    const payments = {PENDING:'Chưa rõ kết quả', FAILED:'Chưa trừ tiền', SUCCEEDED:'Đã trừ tiền',
-        REFUND_PENDING:'Chờ hoàn tiền', REFUNDED:'Đã hoàn tiền'};
-    row.append(element('h3', 'Đơn #' + order.id + ' · ' + title),
-        element('p', (statuses[order.status] || order.status) + ' · ' + quantity + ' vé · ' + money.format(order.totalAmount)));
-    if (order.paymentStatus) row.append(element('p', 'Thanh toán · ' + payments[order.paymentStatus], 'muted'));
-    const actions = element('div', '', 'row');
-    if (order.status === 'PENDING' || order.status === 'PAID') {
-        if (demo && ['PENDING','SUCCEEDED'].includes(order.paymentStatus)) {
-            actions.append(button('Đối soát', () => changeOrder(order, 'payment/reconcile', actions), 'primary'));
-        } else {
-            actions.append(button('Thanh toán giả lập', () => changeOrder(order, 'pay', actions), 'primary'));
-        }
-    }
-    if (order.status === 'CONFIRMED') {
-        const pdf = element('a', 'Tải PDF', 'secondary');
-        pdf.href = '/api/bookings/' + order.id + '/confirmation';
-        actions.append(pdf);
-    }
-    if (order.status !== 'CANCELLED' && order.paymentStatus !== 'PENDING') {
-        actions.append(button('Hủy đơn', () => {
-            if (confirm('Hủy đơn #' + order.id + '?')) changeOrder(order, 'cancel', actions);
-        }, 'danger'));
-    }
-    if (demo && order.paymentStatus === 'REFUND_PENDING') {
-        actions.append(button('Xác nhận hoàn tiền', () => changeOrder(order, 'refund', actions)));
-    }
-    row.append(actions);
-    return row;
-}
-
-async function changeOrder(order, action, actions) {
-    const controls = actions.querySelectorAll('button');
-    controls.forEach(control => { control.disabled = true; });
-    message(orderMessage);
-    try {
-        const body = action === 'pay' && demo ? {scenario:scenario.value} : undefined;
-        await api('/api/bookings/' + order.id + '/' + action, 'POST', body);
-        message(orderMessage, 'Đã cập nhật đơn #' + order.id + '.');
-    } catch (error) {
-        message(orderMessage, error.message, true);
-    } finally {
-        await refreshOrders();
-        await refreshEvents();
-        controls.forEach(control => { control.disabled = false; });
-    }
-}
-
-find('#assistant-search').addEventListener('submit', async event => {
-    event.preventDefault();
-    const notice = find('#assistant-message');
-    try {
-        const result = await api('/api/assistant/search', 'POST', Object.fromEntries(new FormData(event.currentTarget)));
-        assistantResults = new Set(result.content.map(item => item.id));
-        search.value = '';
-        categoriesFilter.value = '';
-        renderEvents();
-        message(notice, 'Đang hiển thị kết quả của trợ lý. Bấm Tải lại sự kiện để xem danh sách đầy đủ.');
-    } catch (error) {
-        message(notice, error.message, true);
-    }
-});
-
-find('#assistant-ask').addEventListener('submit', async event => {
-    event.preventDefault();
-    const notice = find('#ai-answer');
-    try {
-        const result = await api('/api/events/' + selectedEvent.id + '/ask', 'POST',
-            Object.fromEntries(new FormData(event.currentTarget)));
-        message(notice, result.answer);
-    } catch (error) {
-        message(notice, error.message, true);
-    }
-});
-
-find('#close-details').addEventListener('click', () => dialog.close());
-find('#reload').addEventListener('click', () => {
+resetFilters.addEventListener('click', () => {
     assistantResults = null;
-    message(find('#assistant-message'));
-    refreshEvents();
+    assistantCriteria = null;
+    selectedCategory = '';
+    search.value = '';
+    message(assistantNotice);
+    renderEvents();
+    search.focus();
 });
-find('#reload-orders').addEventListener('click', refreshOrders);
+reload.addEventListener('click', refreshEvents);
 search.addEventListener('input', renderEvents);
-categoriesFilter.addEventListener('change', renderEvents);
-startAccount('USER', async (user, demoMode) => {
-    account = user;
-    demo = demoMode;
-    find('#orders').hidden = !account;
-    find('#scenario-label').hidden = !demo;
-    if (!account) find('#order-list').replaceChildren();
-    await refreshEvents();
-    await refreshOrders();
-}).catch(error => message(find('#auth-message'), error.message, true));
+api('/api/auth/me').then(session => showAccountMenu(session.account))
+    .catch(error => message(find('#nav-message'), error.message, true));
+refreshEvents();
